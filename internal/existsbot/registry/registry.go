@@ -67,7 +67,6 @@ func (r *Registry) Reload(dir string) error {
 
 	r.lastErrors = reloadErrors
 
-	// Jeżeli są pliki JSON, ale każdy jest zły, nie nadpisuj starego registry pustą mapą.
 	if len(files) > 0 && len(next) == 0 {
 		return nil
 	}

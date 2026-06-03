@@ -165,13 +165,16 @@ func (b *Bot) onDomainCheck(
 		return
 	}
 
-	domains, err := b.users.GetDomainsByDiscordID(context.Background(), target.ID)
-	if err != nil {
-		respond(s, i, "❌ Failed to load domains:\n```text\n"+err.Error()+"\n```")
-		return
-	}
+	domains := b.registry.ByDiscordID(target.ID)
 
 	if len(domains) == 0 {
+		errors := b.registry.LastErrors()
+
+		if len(errors) > 0 {
+			respond(s, i, "ℹ️ This user has no domains.\n\n⚠️ Registry has skipped files. Use `/registry reload` to see errors.")
+			return
+		}
+
 		respond(s, i, "ℹ️ This user has no domains.")
 		return
 	}
@@ -182,18 +185,16 @@ func (b *Bot) onDomainCheck(
 	out.WriteString(target.ID)
 	out.WriteString(">:\n\n")
 
-	for _, d := range domains {
+	for subdomain, domain := range domains {
 		out.WriteString("• `")
-		out.WriteString(d.Subdomain)
-		out.WriteString(".exists.lol` → `")
-		out.WriteString(d.RecordType)
-		out.WriteString(" ")
-		out.WriteString(d.Value)
-		out.WriteString("`")
+		out.WriteString(subdomain)
+		out.WriteString(".exists.lol`")
 
-		if d.Status != "" {
-			out.WriteString(" — `")
-			out.WriteString(d.Status)
+		for recordType, value := range domain.Records {
+			out.WriteString(" → `")
+			out.WriteString(recordType)
+			out.WriteString(" ")
+			out.WriteString(value)
 			out.WriteString("`")
 		}
 
