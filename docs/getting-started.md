@@ -1,5 +1,5 @@
 ---
-title: exists.lol
+title: Getting started - exists.lol
 layout: layout.vto
 ---
 

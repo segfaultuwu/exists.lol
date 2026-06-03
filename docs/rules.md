@@ -1,5 +1,5 @@
 ---
-title: Rules
+title: Rules - exists.lol
 layout: layout.vto
 ---
 

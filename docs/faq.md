@@ -1,5 +1,5 @@
 ---
-title: FAQ
+title: FAQ - exists.lol
 layout: layout.vto
 ---
 
