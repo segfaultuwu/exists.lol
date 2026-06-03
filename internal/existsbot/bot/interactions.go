@@ -9,7 +9,7 @@ import (
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/auth"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/githubx"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/validate"
-	"github.com/segfaultuwu/exists.lol/internal/links"
+	users "github.com/segfaultuwu/exists.lol/internal/links"
 )
 
 func (b *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -47,7 +47,7 @@ func (b *Bot) onLink(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	err = b.links.Set(links.Link{
+	err = b.users.Link(users.User{
 		DiscordID:      user.ID,
 		DiscordName:    user.Username,
 		GitHubUsername: githubUsername,
@@ -78,7 +78,7 @@ func (b *Bot) onDomain(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	link, ok, err := b.links.Get(user.ID)
+	linkedUser, ok, err := b.users.GetByDiscordID(user.ID)
 	if err != nil {
 		respond(s, i, "❌ Failed to read linked GitHub account.")
 		return
@@ -91,8 +91,8 @@ func (b *Bot) onDomain(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	subOptions := options[0].Options
 
-	subdomain := optionString(subOptions, "subdomain")
-	recordType := strings.ToUpper(optionString(subOptions, "record"))
+	subdomain := strings.TrimSpace(optionString(subOptions, "subdomain"))
+	recordType := strings.ToUpper(strings.TrimSpace(optionString(subOptions, "record")))
 	value := strings.TrimSpace(optionString(subOptions, "value"))
 
 	if err := validate.Request(subdomain, recordType, value); err != nil {
@@ -105,7 +105,7 @@ func (b *Bot) onDomain(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	prURL, err := b.gh.CreateDomainPR(context.Background(), githubx.CreateDomainPROptions{
 		DiscordUsername: user.Username,
 		DiscordID:       user.ID,
-		GitHubUsername:  link.GitHubUsername,
+		GitHubUsername:  linkedUser.GitHubUsername,
 		Subdomain:       subdomain,
 		RecordType:      recordType,
 		Value:           value,

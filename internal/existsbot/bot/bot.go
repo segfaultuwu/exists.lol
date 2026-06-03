@@ -9,14 +9,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/config"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/githubx"
-	"github.com/segfaultuwu/exists.lol/internal/links"
+	users "github.com/segfaultuwu/exists.lol/internal/links"
 )
 
 type Bot struct {
 	cfg   config.Config
 	gh    *githubx.Client
 	dg    *discordgo.Session
-	links *links.Store
+	users *users.Store
 }
 
 func New(cfg config.Config) *Bot {
@@ -27,7 +27,6 @@ func New(cfg config.Config) *Bot {
 			cfg.GitHubOwner,
 			cfg.GitHubRepo,
 		),
-		links: links.NewStore(cfg.LinksPath),
 	}
 }
 
@@ -46,6 +45,15 @@ func (b *Bot) Run() error {
 	}
 	defer session.Close()
 
+	userStore, err := users.Open(b.cfg.UsersDBPath)
+
+	if err != nil {
+		return err
+	}
+
+	defer userStore.Close()
+
+	b.users = userStore
 	if err := b.registerCommands(); err != nil {
 		return err
 	}

@@ -1,90 +1,111 @@
-package links
+package users
 
 import (
-	"encoding/json"
+	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
+
+	_ "modernc.org/sqlite"
 )
 
 type Store struct {
-	path string
-	mu   sync.Mutex
+	db *sql.DB
 }
 
-type Link struct {
-	DiscordID      string `json:"discord_id"`
-	DiscordName    string `json:"discord_name"`
-	GitHubUsername string `json:"github_username"`
+type User struct {
+	DiscordID      string
+	DiscordName    string
+	GitHubUsername string
 }
 
-func NewStore(path string) *Store {
-	return &Store{
-		path: path,
-	}
-}
-
-func (s *Store) Set(link Link) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	all, err := s.load()
-	if err != nil {
-		return err
+func Open(path string) (*Store, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return nil, err
 	}
 
-	all[link.DiscordID] = link
-
-	return s.save(all)
-}
-
-func (s *Store) Get(discordID string) (Link, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	all, err := s.load()
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return Link{}, false, err
+		return nil, err
 	}
 
-	link, ok := all[discordID]
-	return link, ok, nil
+	store := &Store{db: db}
+
+	if err := store.migrate(); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	return store, nil
 }
 
-func (s *Store) load() (map[string]Link, error) {
-	raw, err := os.ReadFile(s.path)
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
+func (s *Store) migrate() error {
+	_, err := s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			discord_id TEXT PRIMARY KEY,
+			discord_name TEXT NOT NULL,
+			github_username TEXT NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	return err
+}
+
+func (s *Store) Link(user User) error {
+	if user.DiscordID == "" {
+		return fmt.Errorf("discord id is required")
+	}
+
+	if user.GitHubUsername == "" {
+		return fmt.Errorf("github username is required")
+	}
+
+	_, err := s.db.Exec(`
+		INSERT INTO users (
+			discord_id,
+			discord_name,
+			github_username,
+			created_at,
+			updated_at
+		)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(discord_id) DO UPDATE SET
+			discord_name = excluded.discord_name,
+			github_username = excluded.github_username,
+			updated_at = CURRENT_TIMESTAMP;
+	`, user.DiscordID, user.DiscordName, user.GitHubUsername)
+
+	return err
+}
+
+func (s *Store) GetByDiscordID(discordID string) (User, bool, error) {
+	row := s.db.QueryRow(`
+		SELECT discord_id, discord_name, github_username
+		FROM users
+		WHERE discord_id = ?;
+	`, discordID)
+
+	var user User
+
+	err := row.Scan(
+		&user.DiscordID,
+		&user.DiscordName,
+		&user.GitHubUsername,
+	)
+
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return map[string]Link{}, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, false, nil
 		}
 
-		return nil, err
+		return User{}, false, err
 	}
 
-	if len(raw) == 0 {
-		return map[string]Link{}, nil
-	}
-
-	var links map[string]Link
-	if err := json.Unmarshal(raw, &links); err != nil {
-		return nil, err
-	}
-
-	return links, nil
-}
-
-func (s *Store) save(links map[string]Link) error {
-	if err := os.MkdirAll(filepath.Dir(s.path), 0755); err != nil {
-		return err
-	}
-
-	raw, err := json.MarshalIndent(links, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	raw = append(raw, '\n')
-
-	return os.WriteFile(s.path, raw, 0600)
+	return user, true, nil
 }

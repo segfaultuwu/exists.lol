@@ -15,7 +15,8 @@ type Config struct {
 	GitHubOwner string
 	GitHubRepo  string
 
-	LinksPath string
+	LinksPath   string
+	UsersDBPath string
 }
 
 func Load() Config {
@@ -29,11 +30,16 @@ func Load() Config {
 		GitHubOwner: os.Getenv("GITHUB_OWNER"),
 		GitHubRepo:  os.Getenv("GITHUB_REPO"),
 
-		LinksPath: os.Getenv("LINKS_PATH"),
+		LinksPath:   os.Getenv("LINKS_PATH"),
+		UsersDBPath: os.Getenv("USERS_DB_PATH"),
 	}
 
 	if cfg.LinksPath == "" {
 		cfg.LinksPath = "data/links.json"
+	}
+
+	if cfg.UsersDBPath == "" {
+		cfg.UsersDBPath = "./data/users.db"
 	}
 
 	must("DISCORD_TOKEN", cfg.DiscordToken)
