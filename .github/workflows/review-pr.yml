@@ -1,0 +1,87 @@
+name: Review PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "domains/**"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/review-pr.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Run validator
+        id: validate
+        continue-on-error: true
+        run: |
+          go run ./cmd/existslol validate > validate.log 2>&1
+
+      - name: Comment success
+        if: steps.validate.outcome == 'success'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const body = [
+              "## ✅ exists.lol validation passed",
+              "",
+              "Your subdomain request looks good.",
+              "",
+              "A maintainer can review and merge this PR."
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Comment failure
+        if: steps.validate.outcome == 'failure'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require("fs");
+            const log = fs.readFileSync("validate.log", "utf8");
+
+            const body = [
+              "## ❌ exists.lol validation failed",
+              "",
+              "Your subdomain request has errors.",
+              "",
+              "```text",
+              log.slice(0, 6000),
+              "```",
+              "",
+              "Fix the issues and push again."
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Fail job if validation failed
+        if: steps.validate.outcome == 'failure'
+        run: exit 1
