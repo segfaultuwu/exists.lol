@@ -17,6 +17,8 @@ type Config struct {
 
 	LinksPath   string
 	UsersDBPath string
+
+	RegistryDir string
 }
 
 func Load() Config {
@@ -32,6 +34,8 @@ func Load() Config {
 
 		LinksPath:   os.Getenv("LINKS_PATH"),
 		UsersDBPath: os.Getenv("USERS_DB_PATH"),
+
+		RegistryDir: os.Getenv("REGISTRY_DIR"),
 	}
 
 	if cfg.LinksPath == "" {
@@ -40,6 +44,10 @@ func Load() Config {
 
 	if cfg.UsersDBPath == "" {
 		cfg.UsersDBPath = "./data/users.db"
+	}
+
+	if cfg.RegistryDir == "" {
+		cfg.RegistryDir = "domains"
 	}
 
 	must("DISCORD_TOKEN", cfg.DiscordToken)

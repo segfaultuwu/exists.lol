@@ -66,5 +66,16 @@ func Commands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
+		{
+			Name:        "registry",
+			Description: "Manage local domain registry",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "reload",
+					Description: "Reload registry from JSON files",
+				},
+			},
+		},
 	}
 }

@@ -9,24 +9,42 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/config"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/githubx"
+	"github.com/segfaultuwu/exists.lol/internal/existsbot/registry"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
 )
 
 type Bot struct {
-	cfg   config.Config
-	gh    *githubx.Client
-	dg    *discordgo.Session
-	users *users.Store
+	cfg config.Config
+
+	gh       *githubx.Client
+	dg       *discordgo.Session
+	users    *users.Store
+	registry *registry.Registry
 }
 
 func New(cfg config.Config) *Bot {
+	userStore, err := users.Open(cfg.UsersDBPath)
+	if err != nil {
+		log.Fatal("failed to open users db:", err)
+	}
+
+	reg := registry.New()
+	if err := reg.Reload(cfg.RegistryDir); err != nil {
+		_ = userStore.Close()
+		log.Fatal("failed to load registry:", err)
+	}
+
 	return &Bot{
 		cfg: cfg,
+
 		gh: githubx.New(
 			cfg.GitHubToken,
 			cfg.GitHubOwner,
 			cfg.GitHubRepo,
 		),
+
+		users:    userStore,
+		registry: reg,
 	}
 }
 
@@ -44,16 +62,8 @@ func (b *Bot) Run() error {
 		return err
 	}
 	defer session.Close()
+	defer b.users.Close()
 
-	userStore, err := users.Open(b.cfg.UsersDBPath)
-
-	if err != nil {
-		return err
-	}
-
-	defer userStore.Close()
-
-	b.users = userStore
 	if err := b.registerCommands(); err != nil {
 		return err
 	}

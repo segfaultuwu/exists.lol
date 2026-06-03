@@ -21,6 +21,9 @@ func (b *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate
 	case "domain":
 		b.onDomainCommand(s, i)
 
+	case "registry":
+		b.onRegistryCommand(s, i)
+
 	default:
 		respond(s, i, "❌ Unknown command.")
 	}
@@ -111,6 +114,37 @@ func (b *Bot) onDomainAdd(
 	}
 
 	editResponse(s, i, "✅ Pull request created: "+prURL)
+}
+func (b *Bot) onRegistryCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	data := i.ApplicationCommandData()
+	if len(data.Options) == 0 {
+		respond(s, i, "❌ Missing subcommand.")
+		return
+	}
+
+	switch data.Options[0].Name {
+	case "reload":
+		b.onRegistryReload(s, i)
+
+	default:
+		respond(s, i, "❌ Unknown registry subcommand.")
+	}
+}
+
+func (b *Bot) onRegistryReload(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if err := b.registry.Reload(b.cfg.RegistryDir); err != nil {
+		respond(s, i, "❌ Failed to reload registry:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	count := len(b.registry.All())
+
+	respond(s, i, fmt.Sprintf("✅ Registry reloaded. Loaded `%d` domains.", count))
 }
 
 func (b *Bot) onDomainCheck(
