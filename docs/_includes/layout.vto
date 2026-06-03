@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title || "exists.lol" }}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08080b;
+      --card: #111118;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --border: #27272a;
+      --accent: #a855f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(168, 85, 247, 0.18), transparent 35%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 8, 11, 0.75);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+    }
+
+    nav {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    nav .links {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    nav .links a {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      margin: 0 0 16px;
+    }
+
+    h2 {
+      margin-top: 48px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    code {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    pre {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 18px;
+      border-radius: 14px;
+      overflow-x: auto;
+    }
+
+    blockquote {
+      margin: 24px 0;
+      padding: 16px 20px;
+      border-left: 4px solid var(--accent);
+      background: rgba(168, 85, 247, 0.08);
+      color: var(--muted);
+      border-radius: 10px;
+    }
+
+    footer {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/">exists.lol</a>
+
+      <div class="links">
+        <a href="/getting-started/">Get started</a>
+        <a href="/records/">Records</a>
+        <a href="/rules/">Rules</a>
+        <a href="/faq/">FAQ</a>
+        <a href="https://github.com/segfaultuwu/exists.lol">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    {{ content }}
+  </main>
+
+  <footer>
+    exists.lol - free subdomains for cool projects.
+  </footer>
+</body>
+</html>
