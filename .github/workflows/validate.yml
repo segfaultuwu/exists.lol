@@ -1,0 +1,26 @@
+name: Validate Domains
+
+on:
+  pull_request:
+    paths:
+      - "domains/**"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Validate
+        run: go run ./cmd/existslol validate

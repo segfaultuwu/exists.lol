@@ -143,6 +143,43 @@ func canProxy(recordType string) bool {
 	}
 }
 
+func (c *Client) DeleteRecord(id string) error {
+	endpoint := fmt.Sprintf(
+		"https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s",
+		url.PathEscape(c.ZoneID),
+		url.PathEscape(id),
+	)
+
+	req, err := http.NewRequest(http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return err
+	}
+
+	c.auth(req)
+
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	var parsed createResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return err
+	}
+
+	if !parsed.Success {
+		return fmt.Errorf("cloudflare delete failed: %s", formatErrors(parsed.Errors))
+	}
+
+	return nil
+}
+
 func (c *Client) CreateRecord(record DNSRecord) error {
 	endpoint := fmt.Sprintf(
 		"https://api.cloudflare.com/client/v4/zones/%s/dns_records",

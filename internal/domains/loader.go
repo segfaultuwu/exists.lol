@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
+	"sync"
 )
 
 type Config struct {
@@ -80,7 +82,12 @@ func Load(dir string) ([]Domain, error) {
 		return nil, err
 	}
 
-	var result []Domain
+	type result struct {
+		domain Domain
+		err    error
+	}
+
+	var files []string
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -93,35 +100,83 @@ func Load(dir string) ([]Domain, error) {
 			continue
 		}
 
-		subdomain := strings.TrimSuffix(name, ".json")
-
-		if err := validateSubdomain(subdomain); err != nil {
-			return nil, err
-		}
-
-		fullPath := filepath.Join(dir, name)
-
-		raw, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-
-		var cfg Config
-		if err := json.Unmarshal(raw, &cfg); err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
-		}
-
-		if err := validateConfig(subdomain, cfg); err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
-		}
-
-		result = append(result, Domain{
-			Subdomain: subdomain,
-			Config:    cfg,
-		})
+		files = append(files, name)
 	}
 
-	return result, nil
+	results := make(chan result, len(files))
+
+	var wg sync.WaitGroup
+
+	for _, file := range files {
+		file := file
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			domain, err := loadOne(dir, file)
+			results <- result{
+				domain: domain,
+				err:    err,
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	var domains []Domain
+	var errors []string
+
+	for res := range results {
+		if res.err != nil {
+			errors = append(errors, res.err.Error())
+			continue
+		}
+
+		domains = append(domains, res.domain)
+	}
+
+	if len(errors) > 0 {
+		sort.Strings(errors)
+		return nil, fmt.Errorf("validation failed:\n%s", strings.Join(errors, "\n"))
+	}
+
+	sort.Slice(domains, func(i, j int) bool {
+		return domains[i].Subdomain < domains[j].Subdomain
+	})
+
+	return domains, nil
+}
+
+func loadOne(dir string, name string) (Domain, error) {
+	subdomain := strings.TrimSuffix(name, ".json")
+
+	if err := validateSubdomain(subdomain); err != nil {
+		return Domain{}, fmt.Errorf("%s: %w", name, err)
+	}
+
+	fullPath := filepath.Join(dir, name)
+
+	raw, err := os.ReadFile(fullPath)
+	if err != nil {
+		return Domain{}, fmt.Errorf("%s: %w", name, err)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return Domain{}, fmt.Errorf("%s: %w", name, err)
+	}
+
+	if err := validateConfig(subdomain, cfg); err != nil {
+		return Domain{}, fmt.Errorf("%s: %w", name, err)
+	}
+
+	return Domain{
+		Subdomain: subdomain,
+		Config:    cfg,
+	}, nil
 }
 
 func validateSubdomain(name string) error {

@@ -10,6 +10,42 @@ import (
 )
 
 func main() {
+	command := "sync"
+	dryRun := false
+
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "validate":
+			command = "validate"
+		case "sync":
+			command = "sync"
+		case "--dry-run":
+			dryRun = true
+		default:
+			die("unknown argument: " + arg)
+		}
+	}
+
+	switch command {
+	case "validate":
+		runValidate()
+	case "sync":
+		runSync(dryRun)
+	default:
+		die("unknown command: " + command)
+	}
+}
+
+func runValidate() {
+	loaded, err := domains.Load("domains")
+	if err != nil {
+		die(err.Error())
+	}
+
+	fmt.Printf("[ok] validated %d domain files\n", len(loaded))
+}
+
+func runSync(dryRun bool) {
 	token := os.Getenv("CLOUDFLARE_API_TOKEN")
 	zoneID := os.Getenv("CLOUDFLARE_ZONE_ID")
 	rootDomain := os.Getenv("ROOT_DOMAIN")
@@ -58,6 +94,10 @@ func main() {
 				if current == nil {
 					fmt.Printf("[create] %s %s %s\n", fqdn, recordType, value)
 
+					if dryRun {
+						continue
+					}
+
 					if err := cf.CreateRecord(record); err != nil {
 						die(err.Error())
 					}
@@ -71,6 +111,10 @@ func main() {
 				}
 
 				fmt.Printf("[update] %s %s %s -> %s\n", fqdn, recordType, current.Content, value)
+
+				if dryRun {
+					continue
+				}
 
 				if err := cf.UpdateRecord(current.ID, record); err != nil {
 					die(err.Error())
