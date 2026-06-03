@@ -76,6 +76,15 @@ func (r *RawValue) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("record value must be string or string array")
 }
 
+// a small helper
+func IsWildcard(domain string) bool {
+	if strings.Contains(domain, "*") {
+		return true
+	} else {
+		return false
+	}
+}
+
 func Load(dir string) ([]Domain, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -97,6 +106,10 @@ func Load(dir string) ([]Domain, error) {
 		name := entry.Name()
 
 		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
+
+		if !IsWildcard(name) {
 			continue
 		}
 

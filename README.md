@@ -2,8 +2,6 @@
 
 ### Grab your own clean, sweet-looking *.exists.lol subdomain for your website, project, portfolio, bot, API, or whatever else you want to show off.
 
-### Inspired by is-a.dev.
-
 ### What is this?
 
 > exists.lol is a free subdomain registry.
@@ -19,8 +17,6 @@
 > portfolio.exists.lol
 > bot.exists.lol
 
-api-demo.exists.lol
-
 ### How it works
 - Fork this repository.
 - Add your domain file inside the domains folder.
@@ -29,7 +25,7 @@ api-demo.exists.lol
 - After your PR is merged, your subdomain will go live.
 
 ### Rules
-- One subdomain per user.
+- ~~One subdomain per user.~~
 - No phishing, malware, scams, spam, or illegal content.
 - No impersonation of companies, projects, or other people.
 - No reserved names like www, api, mail, admin, root, or support.
