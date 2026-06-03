@@ -47,20 +47,32 @@ func main() {
 			for _, value := range values {
 				value = strings.TrimSpace(value)
 
-				if exists(existing, fqdn, recordType, value) {
+				record := cloudflare.DNSRecord{
+					Type:    recordType,
+					Name:    fqdn,
+					Content: value,
+				}
+
+				current := findRecord(existing, fqdn, recordType)
+
+				if current == nil {
+					fmt.Printf("[create] %s %s %s\n", fqdn, recordType, value)
+
+					if err := cf.CreateRecord(record); err != nil {
+						die(err.Error())
+					}
+
+					continue
+				}
+
+				if current.Content == value {
 					fmt.Printf("[skip] %s %s %s\n", fqdn, recordType, value)
 					continue
 				}
 
-				fmt.Printf("[create] %s %s %s\n", fqdn, recordType, value)
+				fmt.Printf("[update] %s %s %s -> %s\n", fqdn, recordType, current.Content, value)
 
-				err := cf.CreateRecord(cloudflare.DNSRecord{
-					Type:    recordType,
-					Name:    fqdn,
-					Content: value,
-				})
-
-				if err != nil {
+				if err := cf.UpdateRecord(current.ID, record); err != nil {
 					die(err.Error())
 				}
 			}
@@ -68,16 +80,16 @@ func main() {
 	}
 }
 
-func exists(records []cloudflare.DNSRecord, name, recordType, content string) bool {
-	for _, record := range records {
-		if record.Name == name &&
-			record.Type == recordType &&
-			record.Content == content {
-			return true
+func findRecord(records []cloudflare.DNSRecord, name, recordType string) *cloudflare.DNSRecord {
+	for i := range records {
+		record := &records[i]
+
+		if record.Name == name && record.Type == recordType {
+			return record
 		}
 	}
 
-	return false
+	return nil
 }
 
 func die(msg string) {

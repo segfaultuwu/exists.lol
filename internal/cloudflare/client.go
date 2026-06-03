@@ -20,7 +20,6 @@ type DNSRecord struct {
 	Type    string `json:"type"`
 	Name    string `json:"name"`
 	Content string `json:"content"`
-	Proxied bool   `json:"proxied"`
 }
 
 type listResponse struct {
@@ -84,6 +83,66 @@ func (c *Client) ListRecords() ([]DNSRecord, error) {
 	return parsed.Result, nil
 }
 
+func (c *Client) UpdateRecord(id string, record DNSRecord) error {
+	endpoint := fmt.Sprintf(
+		"https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s",
+		url.PathEscape(c.ZoneID),
+		url.PathEscape(id),
+	)
+
+	payload := map[string]any{
+		"type":    record.Type,
+		"name":    record.Name,
+		"content": record.Content,
+		"ttl":     1,
+		"proxied": canProxy(record.Type),
+	}
+
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, endpoint, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+
+	c.auth(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	var parsed createResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return err
+	}
+
+	if !parsed.Success {
+		return fmt.Errorf("cloudflare update failed: %s", formatErrors(parsed.Errors))
+	}
+
+	return nil
+}
+
+func canProxy(recordType string) bool {
+	switch recordType {
+	case "A", "AAAA", "CNAME":
+		return true
+	default:
+		return false
+	}
+}
+
 func (c *Client) CreateRecord(record DNSRecord) error {
 	endpoint := fmt.Sprintf(
 		"https://api.cloudflare.com/client/v4/zones/%s/dns_records",
@@ -95,7 +154,7 @@ func (c *Client) CreateRecord(record DNSRecord) error {
 		"name":    record.Name,
 		"content": record.Content,
 		"ttl":     1,
-		"proxied": record.Proxied,
+		"proxied": canProxy(record.Type),
 	}
 
 	raw, err := json.Marshal(payload)

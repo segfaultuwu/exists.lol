@@ -4,7 +4,6 @@
     "email": "root@vapma.wtf"
   },
   "records": {
-    "CNAME": "vapma.wtf"
-  },
-  "proxied": true
+    "CNAME": "s1.vapma.wtf"
+  }
 }
