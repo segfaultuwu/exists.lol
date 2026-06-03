@@ -21,20 +21,22 @@
 
 api-demo.exists.lol
 
-How it works
-Fork this repository.
-Add your domain file inside the domains folder.
-Open a pull request.
-Wait for review.
-After your PR is merged, your subdomain will go live.
-Rules
-One subdomain per user.
-No phishing, malware, scams, spam, or illegal content.
-No impersonation of companies, projects, or other people.
-No reserved names like www, api, mail, admin, root, or support.
-No wildcard records.
-Keep it clean and useful.
-Supported records
+### How it works
+- Fork this repository.
+- Add your domain file inside the domains folder.
+- Open a pull request.
+- Wait for review.
+- After your PR is merged, your subdomain will go live.
+
+### Rules
+- One subdomain per user.
+- No phishing, malware, scams, spam, or illegal content.
+- No impersonation of companies, projects, or other people.
+- No reserved names like www, api, mail, admin, root, or support.
+- No wildcard records.
+- Keep it clean and useful.
+
+## Supported records
 
 exists.lol supports common DNS records such as:
 
