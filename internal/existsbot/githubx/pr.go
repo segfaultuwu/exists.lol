@@ -26,6 +26,12 @@ type CreateDomainPROptions struct {
 	Value           string
 }
 
+type GitHubFileRequest struct {
+	Message string `json:"message"`
+	Content string `json:"content"`
+	SHA     string `json:"sha,omitempty"`
+}
+
 func (c *Client) UserExists(ctx context.Context, username string) (bool, error) {
 	_, resp, err := c.gh.Users.Get(ctx, username)
 	if err != nil {
@@ -57,6 +63,25 @@ func New(token, owner, repo string) *Client {
 
 func (c *Client) CreateDomainPR(ctx context.Context, opts CreateDomainPROptions) (string, error) {
 	baseBranch := "main"
+	path := fmt.Sprintf("domains/%s.json", opts.Subdomain)
+
+	_, _, resp, err := c.gh.Repositories.GetContents(
+		ctx,
+		c.owner,
+		c.repo,
+		path,
+		&github.RepositoryContentGetOptions{
+			Ref: baseBranch,
+		},
+	)
+	if err == nil {
+		return "", fmt.Errorf("subdomain %q already exists", opts.Subdomain)
+	}
+
+	if resp == nil || resp.StatusCode != 404 {
+		return "", fmt.Errorf("check domain file: %w", err)
+	}
+
 	newBranch := fmt.Sprintf("bot/add-%s-%d", opts.Subdomain, time.Now().Unix())
 
 	ref, _, err := c.gh.Git.GetRef(ctx, c.owner, c.repo, "refs/heads/"+baseBranch)
@@ -84,11 +109,10 @@ func (c *Client) CreateDomainPR(ctx context.Context, opts CreateDomainPROptions)
 
 	raw, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal domain file: %w", err)
 	}
 
 	content := append(raw, '\n')
-	path := fmt.Sprintf("domains/%s.json", opts.Subdomain)
 
 	_, _, err = c.gh.Repositories.CreateFile(ctx, c.owner, c.repo, path, &github.RepositoryContentFileOptions{
 		Message: github.String("add " + opts.Subdomain + ".exists.lol"),
@@ -99,19 +123,21 @@ func (c *Client) CreateDomainPR(ctx context.Context, opts CreateDomainPROptions)
 		return "", fmt.Errorf("create domain file: %w", err)
 	}
 
+	body := fmt.Sprintf(
+		"Requested from Discord by `%s` (`%s`).\n\nGitHub: `@%s`\nSubdomain: `%s.exists.lol`\nRecord: `%s`\nValue: `%s`",
+		opts.DiscordUsername,
+		opts.DiscordID,
+		opts.GitHubUsername,
+		opts.Subdomain,
+		opts.RecordType,
+		opts.Value,
+	)
+
 	pr, _, err := c.gh.PullRequests.Create(ctx, c.owner, c.repo, &github.NewPullRequest{
 		Title: github.String("Add " + opts.Subdomain + ".exists.lol"),
 		Head:  github.String(newBranch),
 		Base:  github.String(baseBranch),
-		Body: new(fmt.Sprintf(
-			"Requested from Discord by `%s` (`%s`).\n\nGitHub: `@%s`\nSubdomain: `%s.exists.lol`\nRecord: `%s`\nValue: `%s`",
-			opts.DiscordUsername,
-			opts.DiscordID,
-			opts.GitHubUsername,
-			opts.Subdomain,
-			opts.RecordType,
-			opts.Value,
-		)),
+		Body:  github.String(body),
 	})
 	if err != nil {
 		return "", fmt.Errorf("create pull request: %w", err)
