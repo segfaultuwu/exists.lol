@@ -18,17 +18,17 @@ func Commands() []*discordgo.ApplicationCommand {
 		},
 		{
 			Name:        "domain",
-			Description: "Manage exists.lol domain requests",
+			Description: "Manage exists.lol domains",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Name:        "add",
-					Description: "Request a new exists.lol subdomain",
+					Description: "Add a new domain",
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "subdomain",
-							Description: "Subdomain name, for example: segfault",
+							Description: "Subdomain name",
 							Required:    true,
 						},
 						{
@@ -37,18 +37,30 @@ func Commands() []*discordgo.ApplicationCommand {
 							Description: "DNS record type",
 							Required:    true,
 							Choices: []*discordgo.ApplicationCommandOptionChoice{
-								{Name: "CNAME", Value: "CNAME"},
 								{Name: "A", Value: "A"},
 								{Name: "AAAA", Value: "AAAA"},
+								{Name: "CNAME", Value: "CNAME"},
 								{Name: "TXT", Value: "TXT"},
-								{Name: "MX", Value: "MX"},
 							},
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "value",
-							Description: "DNS target, for example: username.github.io",
+							Description: "DNS record value",
 							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "check",
+					Description: "Check user's domains",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "User to check",
+							Required:    false,
 						},
 					},
 				},
