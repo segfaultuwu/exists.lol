@@ -20,6 +20,7 @@ type DNSRecord struct {
 	Type    string `json:"type"`
 	Name    string `json:"name"`
 	Content string `json:"content"`
+	Proxied string `json:"proxied"`
 }
 
 type listResponse struct {
@@ -94,7 +95,7 @@ func (c *Client) CreateRecord(record DNSRecord) error {
 		"name":    record.Name,
 		"content": record.Content,
 		"ttl":     1,
-		"proxied": false,
+		"proxied": record.Proxied,
 	}
 
 	raw, err := json.Marshal(payload)
