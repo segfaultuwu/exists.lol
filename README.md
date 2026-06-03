@@ -26,6 +26,9 @@
 
 ---
 
+## Where are the docs?
+- [here](https://docs.exists.lol/)
+
 ## What is this?
 
 > exists.lol is a free subdomain registry inspired by [is-a.dev](https://github.com/is-a-dev/register).
