@@ -9,7 +9,8 @@ layout: layout.vto
 
 1. Join our [discord server](https://discord.gg/P6ncsKZE3n)
 2. Choose the domain record (Supported types [here](/records.md)):
-3. Run `/domain add subdomain: <subdomain_name> record: <record_type> value: <target>`
+3. Run `/link github:<your_username>`
+4. Run `/domain add subdomain: <subdomain_name> record: <record_type> value: <target>`
 
 ## Get started via fork
 
