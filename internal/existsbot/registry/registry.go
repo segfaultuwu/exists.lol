@@ -11,8 +11,9 @@ import (
 )
 
 type Registry struct {
-	mu      sync.RWMutex
-	domains map[string]DomainFile
+	mu         sync.RWMutex
+	domains    map[string]DomainFile
+	lastErrors []string
 }
 
 func New() *Registry {
@@ -23,8 +24,16 @@ func New() *Registry {
 
 func (r *Registry) Reload(dir string) error {
 	next := make(map[string]DomainFile)
-	pullCmd := exec.Command("git", "pull")
-	pullCmd.Run()
+	var reloadErrors []string
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create registry dir: %w", err)
+	}
+
+	if err := gitPull(); err != nil {
+		reloadErrors = append(reloadErrors, "git pull failed: "+err.Error())
+	}
+
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return err
@@ -35,24 +44,51 @@ func (r *Registry) Reload(dir string) error {
 
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
+			reloadErrors = append(reloadErrors, fmt.Sprintf("%s: read failed: %v", path, err))
+			continue
 		}
 
 		var domain DomainFile
 		if err := json.Unmarshal(data, &domain); err != nil {
-			return fmt.Errorf("parse %s: %w", path, err)
+			reloadErrors = append(reloadErrors, fmt.Sprintf("%s: invalid json: %v", path, err))
+			continue
 		}
 
 		if err := validateDomainFile(name, domain); err != nil {
-			return fmt.Errorf("validate %s: %w", path, err)
+			reloadErrors = append(reloadErrors, fmt.Sprintf("%s: invalid config: %v", path, err))
+			continue
 		}
 
 		next[name] = domain
 	}
 
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.lastErrors = reloadErrors
+
+	// Jeżeli są pliki JSON, ale każdy jest zły, nie nadpisuj starego registry pustą mapą.
+	if len(files) > 0 && len(next) == 0 {
+		return nil
+	}
+
 	r.domains = next
-	r.mu.Unlock()
+
+	return nil
+}
+
+func gitPull() error {
+	cmd := exec.Command("git", "pull", "--ff-only")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			return err
+		}
+
+		return fmt.Errorf("%w: %s", err, msg)
+	}
 
 	return nil
 }
@@ -77,6 +113,16 @@ func (r *Registry) All() map[string]DomainFile {
 	return copy
 }
 
+func (r *Registry) LastErrors() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	out := make([]string, len(r.lastErrors))
+	copy(out, r.lastErrors)
+
+	return out
+}
+
 func (r *Registry) ByDiscordID(discordID string) map[string]DomainFile {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -97,15 +143,15 @@ func validateDomainFile(subdomain string, domain DomainFile) error {
 		return fmt.Errorf("subdomain is empty")
 	}
 
-	if domain.Owner.Username == "" {
+	if strings.TrimSpace(domain.Owner.Username) == "" {
 		return fmt.Errorf("owner.username is required")
 	}
 
-	if domain.Owner.GitHubUsername == "" {
+	if strings.TrimSpace(domain.Owner.GitHubUsername) == "" {
 		return fmt.Errorf("owner.github_username is required")
 	}
 
-	if domain.Owner.DiscordID == "" {
+	if strings.TrimSpace(domain.Owner.DiscordID) == "" {
 		return fmt.Errorf("owner.discord_id is required")
 	}
 
@@ -114,12 +160,21 @@ func validateDomainFile(subdomain string, domain DomainFile) error {
 	}
 
 	for recordType, value := range domain.Records {
-		if strings.TrimSpace(recordType) == "" {
+		recordType = strings.ToUpper(strings.TrimSpace(recordType))
+		value = strings.TrimSpace(value)
+
+		if recordType == "" {
 			return fmt.Errorf("record type is empty")
 		}
 
-		if strings.TrimSpace(value) == "" {
+		if value == "" {
 			return fmt.Errorf("record value is empty")
+		}
+
+		switch recordType {
+		case "A", "AAAA", "CNAME", "TXT":
+		default:
+			return fmt.Errorf("unsupported record type %q", recordType)
 		}
 	}
 
