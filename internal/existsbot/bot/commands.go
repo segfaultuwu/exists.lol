@@ -64,6 +64,19 @@ func Commands() []*discordgo.ApplicationCommand {
 						},
 					},
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "info",
+					Description: "Show info about domain",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "domain",
+							Description: "Domain to check",
+							Required:    true,
+						},
+					},
+				},
 			},
 		},
 		{
@@ -74,6 +87,11 @@ func Commands() []*discordgo.ApplicationCommand {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Name:        "reload",
 					Description: "Reload registry from JSON files",
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "dump",
+					Description: "Show loaded registry domains",
 				},
 			},
 		},

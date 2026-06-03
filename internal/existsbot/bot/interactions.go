@@ -46,9 +46,65 @@ func (b *Bot) onDomainCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	case "check":
 		b.onDomainCheck(s, i, sub)
 
+	case "info":
+		b.onDomainInfo(s, i, sub)
+
 	default:
 		respond(s, i, "❌ Unknown domain subcommand.")
 	}
+}
+
+func (b *Bot) onDomainInfo(
+	s *discordgo.Session,
+	i *discordgo.InteractionCreate,
+	sub *discordgo.ApplicationCommandInteractionDataOption,
+) {
+	input := strings.TrimSpace(optionString(sub.Options, "domain"))
+	if input == "" {
+		respond(s, i, "❌ Domain is required.")
+		return
+	}
+
+	input = strings.TrimSuffix(input, ".")
+	input = strings.TrimSuffix(input, ".exists.lol")
+	input = strings.ToLower(input)
+
+	domain, ok := b.registry.Get(input)
+	if !ok {
+		respond(s, i, "❌ `"+input+".exists.lol` was not found in registry.")
+		return
+	}
+
+	var out strings.Builder
+
+	out.WriteString("🌐 `")
+	out.WriteString(input)
+	out.WriteString(".exists.lol`\n\n")
+
+	out.WriteString("**Owner**\n")
+	out.WriteString("Username: `")
+	out.WriteString(domain.Owner.Username)
+	out.WriteString("`\n")
+
+	out.WriteString("GitHub: `@")
+	out.WriteString(domain.Owner.GitHubUsername)
+	out.WriteString("`\n")
+
+	out.WriteString("Discord: <@")
+	out.WriteString(domain.Owner.DiscordID)
+	out.WriteString(">\n\n")
+
+	out.WriteString("**Records**\n")
+
+	for recordType, value := range domain.Records {
+		out.WriteString("• `")
+		out.WriteString(recordType)
+		out.WriteString(" ")
+		out.WriteString(value)
+		out.WriteString("`\n")
+	}
+
+	respond(s, i, out.String())
 }
 
 func (b *Bot) onDomainAdd(
@@ -131,8 +187,48 @@ func (b *Bot) onRegistryCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	case "reload":
 		b.onRegistryReload(s, i)
 
+	case "dump":
+		b.onRegistryDump(s, i)
+
 	default:
 		respond(s, i, "❌ Unknown registry subcommand.")
+	}
+}
+
+func (b *Bot) onRegistryDump(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	all := b.registry.All()
+
+	if len(all) == 0 {
+		respond(s, i, "ℹ️ Registry is empty.")
+		return
+	}
+
+	lines := make([]string, 0, len(all))
+
+	for subdomain, domain := range all {
+		var line strings.Builder
+
+		line.WriteString(subdomain)
+		line.WriteString(".exists.lol")
+		line.WriteString(" | discord_id=")
+		line.WriteString(domain.Owner.DiscordID)
+		line.WriteString(" | github=")
+		line.WriteString(domain.Owner.GitHubUsername)
+
+		lines = append(lines, line.String())
+	}
+
+	chunks := SplitDiscordCodeBlock("📦 Loaded registry domains:", lines)
+
+	respond(s, i, chunks[0])
+
+	for _, chunk := range chunks[1:] {
+		Followup(s, i, chunk)
 	}
 }
 
