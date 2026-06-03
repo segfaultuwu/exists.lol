@@ -36,7 +36,7 @@ api-demo.exists.lol
 - No wildcard records.
 - Keep it clean and useful.
 
-## Supported records
+### Supported records
 
 exists.lol supports common DNS records such as:
 
@@ -44,6 +44,6 @@ A, AAAA, CNAME, TXT, and MX.
 
 For simple websites hosted on GitHub Pages, use a CNAME record.
 
-Credits
+### Credits
 
 This project is inspired by is-a.dev and built for people who want a simple, nice-looking subdomain for their projects.
