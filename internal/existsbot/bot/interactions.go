@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -23,9 +24,43 @@ func (b *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	case "registry":
 		b.onRegistryCommand(s, i)
-
+	case "self":
+		b.onSelfCommand(s, i)
 	default:
 		respond(s, i, "❌ Unknown command.")
+	}
+}
+
+func (b *Bot) onSelfCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	data := i.ApplicationCommandData()
+	if len(data.Options) == 0 {
+		respond(s, i, "❌ Missing subcommand.")
+		return
+	}
+
+	switch data.Options[0].Name {
+	case "update":
+		b.onSelfUpdate(s, i)
+
+	default:
+		respond(s, i, "❌ Unknown self subcommand.")
+	}
+}
+
+func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	respond(s, i, "🔄 Updating bot. Pulling latest code, building and restarting...")
+
+	cmd := exec.Command("sh", b.cfg.SelfUpdateScript)
+
+	err := cmd.Start()
+	if err != nil {
+		editResponse(s, i, "❌ Failed to start updater:\n```text\n"+err.Error()+"\n```")
+		return
 	}
 }
 

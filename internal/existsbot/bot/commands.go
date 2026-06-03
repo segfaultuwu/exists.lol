@@ -80,6 +80,17 @@ func Commands() []*discordgo.ApplicationCommand {
 			},
 		},
 		{
+			Name:        "self",
+			Description: "Manage bot process",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "update",
+					Description: "Pull, build and restart the bot",
+				},
+			},
+		},
+		{
 			Name:        "registry",
 			Description: "Manage local domain registry",
 			Options: []*discordgo.ApplicationCommandOption{

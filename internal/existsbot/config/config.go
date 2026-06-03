@@ -19,6 +19,9 @@ type Config struct {
 	UsersDBPath string
 
 	RegistryDir string
+
+	SelfUpdateScript string
+	SystemdService   string
 }
 
 func Load() Config {
@@ -36,6 +39,9 @@ func Load() Config {
 		UsersDBPath: os.Getenv("USERS_DB_PATH"),
 
 		RegistryDir: os.Getenv("REGISTRY_DIR"),
+
+		SelfUpdateScript: os.Getenv("SELF_UPDATE_SCRIPT"),
+		SystemdService:   os.Getenv("SYSTEMD_SERVICE"),
 	}
 
 	if cfg.LinksPath == "" {
@@ -48,6 +54,14 @@ func Load() Config {
 
 	if cfg.RegistryDir == "" {
 		cfg.RegistryDir = "domains"
+	}
+
+	if cfg.SelfUpdateScript == "" {
+		cfg.SelfUpdateScript = "./scripts/self-update.sh"
+	}
+
+	if cfg.SystemdService == "" {
+		cfg.SystemdService = "existsbot"
 	}
 
 	must("DISCORD_TOKEN", cfg.DiscordToken)
