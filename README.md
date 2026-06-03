@@ -40,6 +40,9 @@ A, AAAA, CNAME, TXT, and MX.
 
 For simple websites hosted on GitHub Pages, use a CNAME record.
 
+### Discord if anyone cares (if you join from here you get a nice role)
+-# [Discord](https://discord.gg/P6ncsKZE3n)
+
 ### Credits
 
 This project is inspired by is-a.dev and built for people who want a simple, nice-looking subdomain for their projects.
