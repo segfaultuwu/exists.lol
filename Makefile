@@ -4,7 +4,7 @@ BIN_DIR := bin
 BIN := $(BIN_DIR)/$(APP_NAME)
 
 SERVICE_NAME := existsbot
-SERVICE_FILE := ./scripts/existsbot.service
+SERVICE_FILE := ./services/existsbot.service
 USER_SYSTEMD_DIR := $(HOME)/.config/systemd/user
 INSTALLED_SERVICE := $(USER_SYSTEMD_DIR)/$(SERVICE_NAME).service
 
