@@ -2,6 +2,7 @@ package bot
 
 import (
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -38,5 +39,59 @@ func Followup(s *discordgo.Session, i *discordgo.InteractionCreate, content stri
 	})
 	if err != nil {
 		log.Println("followup:", err)
+	}
+}
+
+func WriteHelpOption(
+	out *strings.Builder,
+	commandName string,
+	opt *discordgo.ApplicationCommandOption,
+	parent string,
+) {
+	switch opt.Type {
+	case discordgo.ApplicationCommandOptionSubCommand:
+		out.WriteString("  `/")
+		out.WriteString(commandName)
+		out.WriteString(" ")
+
+		if parent != "" {
+			out.WriteString(parent)
+			out.WriteString(" ")
+		}
+
+		out.WriteString(opt.Name)
+
+		for _, subOpt := range opt.Options {
+			if subOpt.Type == discordgo.ApplicationCommandOptionSubCommand {
+				continue
+			}
+
+			out.WriteString(" ")
+
+			if subOpt.Required {
+				out.WriteString("<")
+				out.WriteString(subOpt.Name)
+				out.WriteString(">")
+			} else {
+				out.WriteString("[")
+				out.WriteString(subOpt.Name)
+				out.WriteString("]")
+			}
+		}
+
+		out.WriteString("` — ")
+		out.WriteString(opt.Description)
+		out.WriteString("\n")
+
+		for _, subOpt := range opt.Options {
+			if subOpt.Type == discordgo.ApplicationCommandOptionSubCommand {
+				WriteHelpOption(out, commandName, subOpt, opt.Name)
+			}
+		}
+
+	case discordgo.ApplicationCommandOptionSubCommandGroup:
+		for _, subOpt := range opt.Options {
+			WriteHelpOption(out, commandName, subOpt, opt.Name)
+		}
 	}
 }

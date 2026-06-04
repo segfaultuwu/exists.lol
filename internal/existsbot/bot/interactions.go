@@ -24,11 +24,40 @@ func (b *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	case "registry":
 		b.onRegistryCommand(s, i)
+
 	case "self":
 		b.onSelfCommand(s, i)
+
+	case "help":
+		b.onHelp(s, i)
+
 	default:
 		respond(s, i, "❌ Unknown command.")
 	}
+}
+
+func (b *Bot) onHelp(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	commands := Commands()
+
+	var out strings.Builder
+	out.WriteString("📖 **ExistsBot commands**\n\n")
+
+	for _, cmd := range commands {
+		out.WriteString("`/")
+		out.WriteString(cmd.Name)
+		out.WriteString("`")
+		out.WriteString(" — ")
+		out.WriteString(cmd.Description)
+		out.WriteString("\n")
+
+		for _, opt := range cmd.Options {
+			WriteHelpOption(&out, cmd.Name, opt, "")
+		}
+
+		out.WriteString("\n")
+	}
+
+	respond(s, i, out.String())
 }
 
 func (b *Bot) onSelfCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {

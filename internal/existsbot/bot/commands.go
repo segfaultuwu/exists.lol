@@ -106,5 +106,9 @@ func Commands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
+		{
+			Name:        "help",
+			Description: "Show all bot commands",
+		},
 	}
 }
