@@ -519,11 +519,17 @@ func (b *Bot) onLink(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	if b.users.IsAlreadyLinked(githubUsername, user.ID) {
+		respond(s, i, "You've already linked this account")
+		return
+	}
+
 	err = b.users.Link(users.User{
 		DiscordID:      user.ID,
 		DiscordName:    user.Username,
 		GitHubUsername: githubUsername,
 	})
+
 	if err != nil {
 		editResponse(s, i, "❌ Failed to save link:\n```text\n"+err.Error()+"\n```")
 		return

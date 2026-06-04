@@ -87,6 +87,36 @@ func (s *Store) migrate() error {
 	return err
 }
 
+func (s *Store) IsAlreadyLinked(githubName string, discordId string) bool {
+	if githubName == "" {
+		return false
+	}
+
+	row := s.db.QueryRow(`
+		SELECT discord_id
+		FROM users
+		WHERE LOWER(github_username) = LOWER(?)
+		LIMIT 1;
+	`, githubName)
+
+	var existingDiscordID string
+
+	err := row.Scan(&existingDiscordID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false
+		}
+
+		// If the database returns an error, fail closed.
+		// This prevents accidentally allowing duplicate links.
+		return true
+	}
+
+	// If this GitHub account is already linked to the same Discord user,
+	// it is not considered a conflict.
+	return existingDiscordID != discordId
+}
+
 func (s *Store) Link(user User) error {
 	if user.DiscordID == "" {
 		return fmt.Errorf("discord id is required")
