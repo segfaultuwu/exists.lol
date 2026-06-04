@@ -565,7 +565,6 @@ func respond(s *discordgo.Session, i *discordgo.InteractionCreate, content strin
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 	if err != nil {
