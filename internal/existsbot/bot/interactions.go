@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -82,15 +84,63 @@ func (b *Bot) onSelfCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 }
 
 func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	respond(s, i, "🔄 Updating bot. Pulling latest code, building and restarting...")
+	respond(s, i, "🔄 Starting self-update...")
 
-	cmd := exec.Command("sh", b.cfg.SelfUpdateScript)
+	script := b.cfg.SelfUpdateScript
+	if script == "" {
+		script = "./scripts/self-update.sh"
+	}
 
-	err := cmd.Start()
+	if _, err := os.Stat(script); err != nil {
+		editResponse(s, i, "❌ Update script not found:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	if err := os.MkdirAll("data", 0755); err != nil {
+		editResponse(s, i, "❌ Failed to create data dir:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	logPath := filepath.Join("data", "self-update.log")
+
+	logFile, err := os.Create(logPath)
 	if err != nil {
+		editResponse(s, i, "❌ Failed to create update log:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	cmd := exec.Command("sh", script)
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	cmd.Env = append(os.Environ(),
+		"SYSTEMD_SERVICE="+b.cfg.SystemdService,
+	)
+
+	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
 		editResponse(s, i, "❌ Failed to start updater:\n```text\n"+err.Error()+"\n```")
 		return
 	}
+
+	editResponse(s, i, fmt.Sprintf(
+		"✅ Self-update started.\nPID: `%d`\nLog: `%s`\nCheck with:\n```bash\ncat %s\njournalctl -u %s -f\n```",
+		cmd.Process.Pid,
+		logPath,
+		logPath,
+		b.cfg.SystemdService,
+	))
+
+	go func() {
+		err := cmd.Wait()
+		_ = logFile.Close()
+
+		if err != nil {
+			log.Println("self-update failed:", err)
+			return
+		}
+
+		log.Println("self-update finished")
+	}()
 }
 
 func (b *Bot) onDomainCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
