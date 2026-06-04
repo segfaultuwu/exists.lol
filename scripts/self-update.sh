@@ -11,4 +11,4 @@ git pull --ff-only
 go mod tidy
 make build
 
-systemctl --user restart "$SERVICE_NAME"
+sudo /usr/bin/systemctl restart "$SERVICE_NAME"
