@@ -23,10 +23,15 @@ func New() *Registry {
 }
 
 func (r *Registry) Reload(dir string) error {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+
 	next := make(map[string]DomainFile)
 	var reloadErrors []string
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(absDir, 0755); err != nil {
 		return fmt.Errorf("create registry dir: %w", err)
 	}
 
@@ -34,7 +39,7 @@ func (r *Registry) Reload(dir string) error {
 		reloadErrors = append(reloadErrors, "git pull failed: "+err.Error())
 	}
 
-	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	files, err := filepath.Glob(filepath.Join(absDir, "*.json"))
 	if err != nil {
 		return err
 	}
@@ -66,11 +71,6 @@ func (r *Registry) Reload(dir string) error {
 	defer r.mu.Unlock()
 
 	r.lastErrors = reloadErrors
-
-	if len(files) > 0 && len(next) == 0 {
-		return nil
-	}
-
 	r.domains = next
 
 	return nil
