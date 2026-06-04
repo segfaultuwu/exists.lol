@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-APP_DIR="/home/segfault/exists.lol"
+APP_DIR="/home/bots/exists.lol"
 SERVICE_NAME="${SYSTEMD_SERVICE:-existsbot}"
 
 cd "$APP_DIR"
