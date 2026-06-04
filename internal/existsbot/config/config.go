@@ -3,6 +3,8 @@ package config
 import (
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -25,6 +27,8 @@ type Config struct {
 }
 
 func Load() Config {
+	_ = godotenv.Load()
+
 	cfg := Config{
 		DiscordToken:          os.Getenv("DISCORD_TOKEN"),
 		DiscordAppID:          os.Getenv("DISCORD_APP_ID"),
