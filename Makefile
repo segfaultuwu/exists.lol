@@ -5,8 +5,8 @@ BIN := $(BIN_DIR)/$(APP_NAME)
 
 SERVICE_NAME := existsbot
 SERVICE_FILE := ./services/existsbot.service
-USER_SYSTEMD_DIR := $(HOME)/.config/systemd/user
-INSTALLED_SERVICE := $(USER_SYSTEMD_DIR)/$(SERVICE_NAME).service
+SYSTEMD_DIR := /etc/systemd/system
+SYSTEM_SERVICE := $(SYSTEMD_DIR)/$(SERVICE_NAME).service
 
 GO := go
 
@@ -15,7 +15,7 @@ ifneq (,$(wildcard .env))
 	export
 endif
 
-.PHONY: dev build run clean test fmt tidy install uninstall restart logs status
+.PHONY: dev build run clean test fmt tidy install install-system uninstall restart logs status
 
 dev:
 	$(GO) run $(MAIN)
@@ -27,25 +27,26 @@ build:
 run: build
 	./$(BIN)
 
-install: build
-	mkdir -p $(USER_SYSTEMD_DIR)
-	cp $(SERVICE_FILE) $(INSTALLED_SERVICE)
-	systemctl --user daemon-reload
-	systemctl --user enable --now $(SERVICE_NAME)
+install: install-system
+
+install-system: build
+	sudo cp $(SERVICE_FILE) $(SYSTEM_SERVICE)
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now $(SERVICE_NAME)
 
 uninstall:
-	systemctl --user disable --now $(SERVICE_NAME) || true
-	rm -f $(INSTALLED_SERVICE)
-	systemctl --user daemon-reload
+	sudo systemctl disable --now $(SERVICE_NAME) || true
+	sudo rm -f $(SYSTEM_SERVICE)
+	sudo systemctl daemon-reload
 
 restart: build
-	systemctl --user restart $(SERVICE_NAME)
+	sudo systemctl restart $(SERVICE_NAME)
 
 logs:
-	journalctl --user -u $(SERVICE_NAME) -f
+	journalctl -u $(SERVICE_NAME) -f
 
 status:
-	systemctl --user status $(SERVICE_NAME)
+	systemctl status $(SERVICE_NAME)
 
 clean:
 	rm -rf $(BIN_DIR)
