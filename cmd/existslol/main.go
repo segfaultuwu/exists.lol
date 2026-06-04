@@ -69,6 +69,9 @@ func runSync(dryRun bool) {
 		die(err.Error())
 	}
 
+	fmt.Printf("[info] loaded domains: %d\n", len(loaded))
+	fmt.Printf("[info] root domain: %s\n", rootDomain)
+
 	cf := cloudflare.New(token, zoneID)
 
 	existing, err := cf.ListRecords()
@@ -79,7 +82,10 @@ func runSync(dryRun bool) {
 	for _, domain := range loaded {
 		fqdn := domain.Subdomain + "." + rootDomain
 
+		fmt.Printf("[domain] %s\n", fqdn)
+
 		for recordType, values := range domain.Config.Records {
+			fmt.Printf("[records] %s has %d %s record(s)\n", fqdn, len(values), recordType)
 			for _, value := range values {
 				value = strings.TrimSpace(value)
 
