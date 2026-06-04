@@ -109,7 +109,7 @@ func Load(dir string) ([]Domain, error) {
 			continue
 		}
 
-		if !IsWildcard(name) {
+		if IsWildcard(name) {
 			continue
 		}
 
