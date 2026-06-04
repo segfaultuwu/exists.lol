@@ -86,6 +86,10 @@ func runSync(dryRun bool) {
 
 		for recordType, values := range domain.Config.Records {
 			fmt.Printf("[records] %s has %d %s record(s)\n", fqdn, len(values), recordType)
+			if recordType == "REDIRECT" {
+				fmt.Printf("[skip] %s REDIRECT is not a DNS record\n", fqdn)
+				continue
+			}
 			for _, value := range values {
 				value = strings.TrimSpace(value)
 

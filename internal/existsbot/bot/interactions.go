@@ -162,10 +162,85 @@ func (b *Bot) onDomainCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	case "info":
 		b.onDomainInfo(s, i, sub)
+	case "redirect":
+		b.onDomainRedirect(s, i, sub)
 
 	default:
 		respond(s, i, "❌ Unknown domain subcommand.")
 	}
+}
+
+func (b *Bot) onDomainRedirect(
+	s *discordgo.Session,
+	i *discordgo.InteractionCreate,
+	sub *discordgo.ApplicationCommandInteractionDataOption,
+) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	user := interactionUser(i)
+	if user == nil {
+		respond(s, i, "❌ Could not detect Discord user.")
+		return
+	}
+
+	linkedUser, ok, err := b.users.GetByDiscordID(user.ID)
+	if err != nil {
+		respond(s, i, "❌ Failed to read linked GitHub account.")
+		return
+	}
+
+	if !ok {
+		respond(s, i, "❌ Link your GitHub account first with `/link github:<username>`.")
+		return
+	}
+
+	domain := strings.TrimSpace(optionString(sub.Options, "domain"))
+	target := strings.TrimSpace(optionString(sub.Options, "target"))
+
+	domain = NormalizeSubdomain(domain)
+
+	if domain == "" {
+		respond(s, i, "❌ Domain is required.")
+		return
+	}
+
+	if err := ValidateRedirectTarget(target); err != nil {
+		respond(s, i, "❌ "+err.Error())
+		return
+	}
+
+	if b.cfg.RedirectCNAME == "" {
+		respond(s, i, "❌ REDIRECT_CNAME is not configured.")
+		return
+	}
+
+	if _, taken := b.registry.Get(domain); taken {
+		respond(s, i, "❌ `"+domain+".exists.lol` is already taken.")
+		return
+	}
+
+	respond(s, i, "⏳ Creating redirect pull request for `"+domain+".exists.lol`...")
+
+	prURL, err := b.gh.CreateDomainPR(context.Background(), githubx.CreateDomainPROptions{
+		DiscordUsername: user.Username,
+		DiscordID:       user.ID,
+		GitHubUsername:  linkedUser.GitHubUsername,
+		Subdomain:       domain,
+		RecordType:      "CNAME",
+		Value:           b.cfg.RedirectCNAME,
+		ExtraRecords: map[string]string{
+			"REDIRECT": target,
+		},
+	})
+	if err != nil {
+		editResponse(s, i, "❌ Failed to create pull request:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	editResponse(s, i, "✅ Redirect pull request created: "+prURL)
 }
 
 func (b *Bot) onDomainInfo(
@@ -210,12 +285,14 @@ func (b *Bot) onDomainInfo(
 
 	out.WriteString("**Records**\n")
 
-	for recordType, value := range domain.Records {
-		out.WriteString("• `")
-		out.WriteString(recordType)
-		out.WriteString(" ")
-		out.WriteString(value)
-		out.WriteString("`\n")
+	for recordType, values := range domain.Records {
+		for _, value := range values {
+			out.WriteString("• `")
+			out.WriteString(recordType)
+			out.WriteString(" ")
+			out.WriteString(value)
+			out.WriteString("`\n")
+		}
 	}
 
 	respond(s, i, out.String())
@@ -400,12 +477,14 @@ func (b *Bot) onDomainCheck(
 		out.WriteString(subdomain)
 		out.WriteString(".exists.lol`")
 
-		for recordType, value := range domain.Records {
-			out.WriteString(" → `")
-			out.WriteString(recordType)
-			out.WriteString(" ")
-			out.WriteString(value)
-			out.WriteString("`")
+		for recordType, values := range domain.Records {
+			for _, value := range values {
+				out.WriteString("• `")
+				out.WriteString(recordType)
+				out.WriteString(" ")
+				out.WriteString(value)
+				out.WriteString("`\n")
+			}
 		}
 
 		out.WriteString("\n")

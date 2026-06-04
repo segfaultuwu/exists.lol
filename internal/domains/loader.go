@@ -53,11 +53,12 @@ var reservedSubdomains = map[string]bool{
 }
 
 var allowedRecords = map[string]bool{
-	"A":     true,
-	"AAAA":  true,
-	"CNAME": true,
-	"TXT":   true,
-	"MX":    true,
+	"A":        true,
+	"AAAA":     true,
+	"CNAME":    true,
+	"TXT":      true,
+	"MX":       true,
+	"REDIRECT": true,
 }
 
 func (r *RawValue) UnmarshalJSON(data []byte) error {

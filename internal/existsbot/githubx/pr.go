@@ -24,6 +24,8 @@ type CreateDomainPROptions struct {
 	Subdomain       string
 	RecordType      string
 	Value           string
+
+	ExtraRecords map[string]string
 }
 
 type GitHubFileRequest struct {

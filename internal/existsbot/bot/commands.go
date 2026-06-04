@@ -66,6 +66,25 @@ func Commands() []*discordgo.ApplicationCommand {
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "redirect",
+					Description: "Create a redirect domain",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "domain",
+							Description: "Subdomain, for example user or user.exists.lol",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "target",
+							Description: "Redirect target URL",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Name:        "info",
 					Description: "Show info about domain",
 					Options: []*discordgo.ApplicationCommandOption{
