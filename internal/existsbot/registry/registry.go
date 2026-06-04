@@ -158,22 +158,35 @@ func validateDomainFile(subdomain string, domain DomainFile) error {
 		return fmt.Errorf("records are required")
 	}
 
-	for recordType, value := range domain.Records {
+	for recordType, values := range domain.Records {
 		recordType = strings.ToUpper(strings.TrimSpace(recordType))
-		value = strings.TrimSpace(value)
 
 		if recordType == "" {
 			return fmt.Errorf("record type is empty")
 		}
 
-		if value == "" {
-			return fmt.Errorf("record value is empty")
-		}
-
 		switch recordType {
-		case "A", "AAAA", "CNAME", "TXT":
+		case "A", "AAAA", "CNAME", "TXT", "MX", "REDIRECT":
 		default:
 			return fmt.Errorf("unsupported record type %q", recordType)
+		}
+
+		if len(values) == 0 {
+			return fmt.Errorf("record %q has no values", recordType)
+		}
+
+		for _, value := range values {
+			value = strings.TrimSpace(value)
+
+			if value == "" {
+				return fmt.Errorf("record %q has empty value", recordType)
+			}
+
+			if recordType == "REDIRECT" {
+				if !strings.HasPrefix(value, "https://") && !strings.HasPrefix(value, "http://") {
+					return fmt.Errorf("REDIRECT target must start with http:// or https://")
+				}
+			}
 		}
 	}
 

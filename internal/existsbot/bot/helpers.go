@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"fmt"
 	"log"
+	"net/url"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -94,4 +96,34 @@ func WriteHelpOption(
 			WriteHelpOption(out, commandName, subOpt, opt.Name)
 		}
 	}
+}
+
+func NormalizeSubdomain(input string) string {
+	input = strings.TrimSpace(input)
+	input = strings.TrimSuffix(input, ".")
+	input = strings.TrimSuffix(input, ".exists.lol")
+	input = strings.ToLower(input)
+
+	return input
+}
+
+func ValidateRedirectTarget(target string) error {
+	if target == "" {
+		return fmt.Errorf("redirect target is required")
+	}
+
+	u, err := url.Parse(target)
+	if err != nil {
+		return fmt.Errorf("invalid redirect target")
+	}
+
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return fmt.Errorf("redirect target must start with http:// or https://")
+	}
+
+	if u.Host == "" {
+		return fmt.Errorf("redirect target must include host")
+	}
+
+	return nil
 }

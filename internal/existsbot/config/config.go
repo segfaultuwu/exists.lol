@@ -24,6 +24,8 @@ type Config struct {
 
 	SelfUpdateScript string
 	SystemdService   string
+
+	RedirectCNAME string
 }
 
 func Load() Config {
@@ -46,6 +48,8 @@ func Load() Config {
 
 		SelfUpdateScript: os.Getenv("SELF_UPDATE_SCRIPT"),
 		SystemdService:   os.Getenv("SYSTEMD_SERVICE"),
+
+		RedirectCNAME: os.Getenv("REDIRECT_CNAME"),
 	}
 
 	if cfg.LinksPath == "" {
