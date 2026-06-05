@@ -165,10 +165,73 @@ func (b *Bot) onDomainCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		b.onDomainInfo(s, i, sub)
 	case "redirect":
 		b.onDomainRedirect(s, i, sub)
+	case "github-pages":
+		b.onDomainGithubPages(s, i, sub)
 
 	default:
 		respond(s, i, "❌ Unknown domain subcommand.")
 	}
+}
+
+func (b *Bot) onDomainGithubPages(
+	s *discordgo.Session,
+	i *discordgo.InteractionCreate,
+	sub *discordgo.ApplicationCommandInteractionDataOption,
+) {
+	user := interactionUser(i)
+	if user == nil {
+		respond(s, i, "❌ Could not detect Discord user.")
+		return
+	}
+
+	var subdomain string
+	var githubUsername string
+	var value string
+
+	for _, opt := range sub.Options {
+		switch opt.Name {
+		case "subdomain":
+			subdomain = strings.TrimSpace(opt.StringValue())
+		case "github":
+			githubUsername = strings.TrimSpace(opt.StringValue())
+		case "value":
+			value = strings.TrimSpace(opt.StringValue())
+		}
+	}
+
+	if subdomain == "" || githubUsername == "" || value == "" {
+		respond(s, i, "❌ Missing required options: subdomain, github, value.")
+		return
+	}
+
+	// GitHub Pages verification record:
+	// _github-pages-challenge-<githubUsername>.<subdomain>
+	recordName := strings.Join([]string{
+		"_github-pages-challenge-" + githubUsername,
+		subdomain,
+	}, ".")
+
+	req := githubx.CreateDomainPROptions{
+		DiscordUsername: user.Username,
+		DiscordID:       user.ID,
+		GitHubUsername:  githubUsername,
+		Subdomain:       recordName,
+		RecordType:      "TXT",
+		Value:           value,
+	}
+
+	prURL, err := b.gh.CreateDomainPR(context.Background(), req)
+	if err != nil {
+		respond(s, i, "❌ Failed to create GitHub Pages verification PR: "+err.Error())
+		return
+	}
+
+	respond(s, i, fmt.Sprintf(
+		"✅ Created GitHub Pages verification request.\n\nRecord:\n`%s.exists.lol`\n\nType:\n`TXT`\n\nValue:\n`%s`\n\nPR:\n%s",
+		recordName,
+		value,
+		prURL,
+	))
 }
 
 func (b *Bot) onDomainRedirect(

@@ -9,8 +9,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const discordMessageLimit = 2000
-
 func SplitDiscordCodeBlock(header string, lines []string) []string {
 	const limit = 1900
 	var chunks []string
