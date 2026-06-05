@@ -28,7 +28,7 @@ type Domain struct {
 	Config    Config
 }
 
-var allowedSubdomain = regexp.MustCompile(`^[a-z0-9-]+$`)
+var allowedSubdomain = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 var reservedSubdomains = map[string]bool{
 	"www":       true,
@@ -122,19 +122,13 @@ func Load(dir string) ([]Domain, error) {
 	var wg sync.WaitGroup
 
 	for _, file := range files {
-		file := file
-
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			domain, err := loadOne(dir, file)
 			results <- result{
 				domain: domain,
 				err:    err,
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
