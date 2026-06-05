@@ -9,16 +9,14 @@ services:
     env_file:
       - .env
 
-    ports:
-      - "6767:8080"
-
     volumes:
       - ./domains:/app/domains
       - ./data:/app/data
       - ./.git:/app/.git
       - ./scripts:/app/scripts:ro
 
-    working_dir: /app
+    expose:
+      - "6767:8080"
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/status"]
@@ -26,3 +24,13 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  cloudflare-existslol:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-existslol
+    restart: unless-stopped
+
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+
+    depends_on:
+      - existsbot
