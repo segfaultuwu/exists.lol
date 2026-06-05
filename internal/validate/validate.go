@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var allowedSubdomain = regexp.MustCompile(`^[a-z0-9-]+$`)
+var allowedSubdomain = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 var reserved = map[string]bool{
 	"www":       true,
