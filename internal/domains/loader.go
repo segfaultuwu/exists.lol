@@ -28,7 +28,7 @@ type Domain struct {
 	Config    Config
 }
 
-var allowedSubdomain = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+var allowedSubdomain = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 var reservedSubdomains = map[string]bool{
 	"www":       true,
