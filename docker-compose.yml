@@ -1,0 +1,28 @@
+services:
+  existsbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: existsbot
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./domains:/app/domains
+      - ./data:/app/data
+      - ./.git:/app/.git
+      - ./scripts:/app/scripts:ro
+
+    working_dir: /app
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

@@ -5,6 +5,6 @@
     "discord_id": "1244295862469918791"
   },
   "records": {
-    "CNAME": "segfaultuwu.github.io"
+    "CNAME": ["segfaultuwu.github.io"]
   }
 }

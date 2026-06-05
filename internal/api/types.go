@@ -36,3 +36,18 @@ type ValidateResponse struct {
 	OK     bool     `json:"ok"`
 	Errors []string `json:"errors"`
 }
+
+type CreateDomainRequest struct {
+	DiscordID      string              `json:"discord_id"`
+	Username       string              `json:"username"`
+	GitHubUsername string              `json:"github_username"`
+	Subdomain      string              `json:"subdomain"`
+	Records        map[string][]string `json:"records"`
+}
+
+type CreateDomainResponse struct {
+	OK        bool   `json:"ok"`
+	Subdomain string `json:"subdomain"`
+	FQDN      string `json:"fqdn"`
+	Message   string `json:"message"`
+}

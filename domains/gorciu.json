@@ -6,6 +6,6 @@
     "email": "gorciu@proton.me"
   },
   "records": {
-    "CNAME": "gorciu.neocities.org"
+    "CNAME": ["gorciu.neocities.org"]
   }
 }

@@ -26,14 +26,18 @@ type Config struct {
 	SelfUpdateScript string
 	SystemdService   string
 	RedirectCNAME    string
+	RootDomain       string
 
 	API APIConfig
 }
 
 type APIConfig struct {
-	Enabled bool
-	Host    string
-	Port    int
+	Enabled     bool
+	Host        string
+	Port        int
+	PublicURL   string
+	Token       string
+	InternalURL string
 }
 
 func Load() Config {
@@ -58,11 +62,15 @@ func Load() Config {
 		SystemdService:   os.Getenv("SYSTEMD_SERVICE"),
 
 		RedirectCNAME: os.Getenv("REDIRECT_CNAME"),
+		RootDomain:    os.Getenv("ROOT_DOMAIN"),
 
 		API: APIConfig{
-			Enabled: os.Getenv("API_ENABLED") == "true",
-			Host:    envString("API_HOST", "0.0.0.0"),
-			Port:    envInt("API_PORT", 8080),
+			Enabled:     os.Getenv("API_ENABLED") == "true",
+			Host:        envString("API_HOST", "0.0.0.0"),
+			Port:        envInt("API_PORT", 8080),
+			PublicURL:   envString("API_PUBLIC_URL", "http://localhost:8080"),
+			Token:       envString("API_TOKEN", ""),
+			InternalURL: envString("API_INTERNAL_URL", "http://localhost:8080"),
 		},
 	}
 

@@ -14,12 +14,25 @@ func main() {
 
 	reg := registry.New()
 
+	if err := reg.Reload(cfg.RegistryDir); err != nil {
+		log.Printf("registry reload error: %v", err)
+	}
+
+	log.Printf("loaded domains: %d", len(reg.All()))
+	log.Printf("registry dir=%q", cfg.RegistryDir)
+
+	for _, err := range reg.LastErrors() {
+		log.Printf("registry warning: %s", err)
+	}
+
 	app := bot.New(cfg)
+
 	if cfg.API.Enabled {
 		apiServer := api.New(
 			cfg.API.Host,
 			cfg.API.Port,
-			"exists.lol",
+			cfg.RootDomain,
+			cfg.RegistryDir,
 			reg,
 		)
 

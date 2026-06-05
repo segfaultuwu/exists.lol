@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,6 +19,10 @@ func New() *Registry {
 	return &Registry{
 		domains: make(map[string]DomainFile),
 	}
+}
+
+func (r *Registry) Token() string {
+	return os.Getenv("API_TOKEN")
 }
 
 func (r *Registry) Reload(dir string) error {
@@ -76,22 +79,6 @@ func (r *Registry) Reload(dir string) error {
 	return nil
 }
 
-func gitPull() error {
-	cmd := exec.Command("git", "pull", "--ff-only")
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			return err
-		}
-
-		return fmt.Errorf("%w: %s", err, msg)
-	}
-
-	return nil
-}
-
 func (r *Registry) Get(subdomain string) (DomainFile, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -138,58 +125,46 @@ func (r *Registry) ByDiscordID(discordID string) map[string]DomainFile {
 	return out
 }
 
-func validateDomainFile(subdomain string, domain DomainFile) error {
-	if subdomain == "" {
-		return fmt.Errorf("subdomain is empty")
+func (r *Registry) Add(dir, name string, domain DomainFile) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return fmt.Errorf("domain name is required")
 	}
 
-	if strings.TrimSpace(domain.Owner.Username) == "" {
-		return fmt.Errorf("owner.username is required")
+	if _, exists := r.domains[name]; exists {
+		return fmt.Errorf("domain already exists")
 	}
 
-	if strings.TrimSpace(domain.Owner.GitHubUsername) == "" {
-		return fmt.Errorf("owner.github_username is required")
+	domain.Owner.Username = strings.TrimSpace(domain.Owner.Username)
+	domain.Owner.GitHubUsername = strings.TrimSpace(domain.Owner.GitHubUsername)
+	domain.Owner.DiscordID = strings.TrimSpace(domain.Owner.DiscordID)
+	domain.Records = normalizeRecords(domain.Records)
+
+	if err := validateDomainFile(name, domain); err != nil {
+		return err
 	}
 
-	if strings.TrimSpace(domain.Owner.DiscordID) == "" {
-		return fmt.Errorf("owner.discord_id is required")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
 	}
 
-	if len(domain.Records) == 0 {
-		return fmt.Errorf("records are required")
+	path := filepath.Join(dir, name+".json")
+
+	data, err := json.MarshalIndent(domain, "", "  ")
+	if err != nil {
+		return err
 	}
 
-	for recordType, values := range domain.Records {
-		recordType = strings.ToUpper(strings.TrimSpace(recordType))
+	data = append(data, '\n')
 
-		if recordType == "" {
-			return fmt.Errorf("record type is empty")
-		}
-
-		switch recordType {
-		case "A", "AAAA", "CNAME", "TXT", "MX", "REDIRECT":
-		default:
-			return fmt.Errorf("unsupported record type %q", recordType)
-		}
-
-		if len(values) == 0 {
-			return fmt.Errorf("record %q has no values", recordType)
-		}
-
-		for _, value := range values {
-			value = strings.TrimSpace(value)
-
-			if value == "" {
-				return fmt.Errorf("record %q has empty value", recordType)
-			}
-
-			if recordType == "REDIRECT" {
-				if !strings.HasPrefix(value, "https://") && !strings.HasPrefix(value, "http://") {
-					return fmt.Errorf("REDIRECT target must start with http:// or https://")
-				}
-			}
-		}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return err
 	}
+
+	r.domains[name] = domain
 
 	return nil
 }

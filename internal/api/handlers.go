@@ -31,6 +31,69 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
+	var req CreateDomainRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	req.Subdomain = strings.ToLower(strings.TrimSpace(req.Subdomain))
+
+	if req.Subdomain == "" {
+		writeError(w, http.StatusBadRequest, "subdomain is required")
+		return
+	}
+
+	if len(req.Records) == 0 {
+		writeError(w, http.StatusBadRequest, "records are required")
+		return
+	}
+
+	if _, exists := s.registry.Get(req.Subdomain); exists {
+		writeError(w, http.StatusConflict, "subdomain already exists")
+		return
+	}
+
+	domain := registry.DomainFile{
+		Owner: registry.Owner{
+			Username:       req.Username,
+			GitHubUsername: req.GitHubUsername,
+			DiscordID:      req.DiscordID,
+		},
+		Records: req.Records,
+	}
+
+	for recordType, values := range req.Records {
+		recordType = strings.ToUpper(strings.TrimSpace(recordType))
+
+		switch recordType {
+		case "A", "AAAA", "CNAME", "TXT":
+		default:
+			writeError(w, http.StatusBadRequest, "unsupported record type: "+recordType)
+			return
+		}
+
+		if len(values) == 0 {
+			writeError(w, http.StatusBadRequest, "record has no values: "+recordType)
+			return
+		}
+	}
+
+	if err := s.registry.Add(s.registryDir, req.Subdomain, domain); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, CreateDomainResponse{
+		OK:        true,
+		Subdomain: req.Subdomain,
+		FQDN:      req.Subdomain + "." + s.baseDomain,
+		Message:   "domain created",
+	})
+}
+
 func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
 	domains := s.registry.All()
 
