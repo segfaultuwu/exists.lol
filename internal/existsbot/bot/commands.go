@@ -23,24 +23,24 @@ func Commands() []*discordgo.ApplicationCommand {
 				{
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Name:        "github-pages",
-					Description: "Add your subdomain to the github pages",
+					Description: "Add GitHub Pages verification TXT record",
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "subdomain",
-							Description: "Subdomain name",
+							Description: "Subdomain to verify, for example: segfault",
 							Required:    true,
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "username",
-							Description: "Your github username",
+							Description: "Your GitHub username",
 							Required:    true,
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "token",
-							Description: "The value github wants you to set, e.g, '2ce6df9a4a5119cbe1927dcb2ba648'",
+							Description: "GitHub Pages verification value",
 							Required:    true,
 						},
 					},
@@ -48,12 +48,12 @@ func Commands() []*discordgo.ApplicationCommand {
 				{
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Name:        "add",
-					Description: "Add a new domain",
+					Description: "Add a new DNS record",
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "subdomain",
-							Description: "Subdomain name",
+							Description: "Subdomain name, for example: segfault",
 							Required:    true,
 						},
 						{
@@ -97,7 +97,7 @@ func Commands() []*discordgo.ApplicationCommand {
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "domain",
-							Description: "Subdomain, for example user or user.exists.lol",
+							Description: "Subdomain, for example: user or user.exists.lol",
 							Required:    true,
 						},
 						{
@@ -122,19 +122,6 @@ func Commands() []*discordgo.ApplicationCommand {
 					},
 				},
 			},
-			ID:                       "",
-			ApplicationID:            "",
-			GuildID:                  "",
-			Version:                  "",
-			Type:                     0,
-			NameLocalizations:        &map[discordgo.Locale]string{},
-			DefaultPermission:        new(bool),
-			DefaultMemberPermissions: new(int64),
-			NSFW:                     new(bool),
-			DMPermission:             new(bool),
-			Contexts:                 &[]discordgo.InteractionContextType{},
-			IntegrationTypes:         &[]discordgo.ApplicationIntegrationType{},
-			DescriptionLocalizations: &map[discordgo.Locale]string{},
 		},
 		{
 			Name:        "self",
