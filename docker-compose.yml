@@ -9,14 +9,23 @@ services:
     env_file:
       - .env
 
+    environment:
+      API_ENABLED: "true"
+      API_HOST: "0.0.0.0"
+      API_PORT: "8080"
+      REGISTRY_DIR: "/app/domains"
+      DATABASE_PATH: "/app/data/users.db"
+
+    ports:
+      - "6767:8080"
+
     volumes:
       - ./domains:/app/domains
       - ./data:/app/data
       - ./.git:/app/.git
       - ./scripts:/app/scripts:ro
 
-    expose:
-      - "6767:8080"
+    working_dir: /app
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/status"]
