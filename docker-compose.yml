@@ -10,7 +10,7 @@ services:
       - .env
 
     ports:
-      - "8080:6767"
+      - "6767:8080"
 
     volumes:
       - ./domains:/app/domains
