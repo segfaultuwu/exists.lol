@@ -7,10 +7,10 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/config"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/githubx"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/registry"
+	"github.com/segfaultuwu/exists.lol/internal/config"
+	"github.com/segfaultuwu/exists.lol/internal/githubx"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
+	"github.com/segfaultuwu/exists.lol/internal/registry"
 )
 
 type Bot struct {

@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -24,8 +25,15 @@ type Config struct {
 
 	SelfUpdateScript string
 	SystemdService   string
+	RedirectCNAME    string
 
-	RedirectCNAME string
+	API APIConfig
+}
+
+type APIConfig struct {
+	Enabled bool
+	Host    string
+	Port    int
 }
 
 func Load() Config {
@@ -50,6 +58,12 @@ func Load() Config {
 		SystemdService:   os.Getenv("SYSTEMD_SERVICE"),
 
 		RedirectCNAME: os.Getenv("REDIRECT_CNAME"),
+
+		API: APIConfig{
+			Enabled: os.Getenv("API_ENABLED") == "true",
+			Host:    envString("API_HOST", "0.0.0.0"),
+			Port:    envInt("API_PORT", 8080),
+		},
 	}
 
 	if cfg.LinksPath == "" {
@@ -87,4 +101,41 @@ func must(name, value string) {
 	if value == "" {
 		log.Fatalf("missing %s", name)
 	}
+}
+
+func envBool(key string, fallback bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
+}
+
+func envString(key, fallback string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+
+	return value
+}
+
+func envInt(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+
+	return parsed
 }

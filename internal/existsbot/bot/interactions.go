@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/auth"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/githubx"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/validate"
+	"github.com/segfaultuwu/exists.lol/internal/auth"
+	"github.com/segfaultuwu/exists.lol/internal/githubx"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
+	"github.com/segfaultuwu/exists.lol/internal/validate"
 )
 
 func (b *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {

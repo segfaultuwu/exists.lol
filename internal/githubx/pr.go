@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v64/github"
-	"github.com/segfaultuwu/exists.lol/internal/existsbot/registry"
+	"github.com/segfaultuwu/exists.lol/internal/registry"
 	"golang.org/x/oauth2"
 )
 

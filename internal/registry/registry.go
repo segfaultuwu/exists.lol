@@ -104,12 +104,13 @@ func (r *Registry) All() map[string]DomainFile {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	copy := make(map[string]DomainFile, len(r.domains))
-	for k, v := range r.domains {
-		copy[k] = v
+	out := make(map[string]DomainFile, len(r.domains))
+
+	for name, domain := range r.domains {
+		out[name] = domain
 	}
 
-	return copy
+	return out
 }
 
 func (r *Registry) LastErrors() []string {
