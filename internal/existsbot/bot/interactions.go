@@ -96,7 +96,7 @@ func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate)
 		return
 	}
 
-	if err := os.MkdirAll("data", 0755); err != nil {
+	if err := os.MkdirAll("data", 0o755); err != nil {
 		editResponse(s, i, "❌ Failed to create data dir:\n```text\n"+err.Error()+"\n```")
 		return
 	}
@@ -112,7 +112,8 @@ func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate)
 	cmd := exec.Command("sh", script)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(
+		os.Environ(),
 		"SYSTEMD_SERVICE="+b.cfg.SystemdService,
 	)
 
@@ -175,11 +176,6 @@ func (b *Bot) onDomainRedirect(
 	i *discordgo.InteractionCreate,
 	sub *discordgo.ApplicationCommandInteractionDataOption,
 ) {
-	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
-		respond(s, i, "❌ You are not allowed to use this command.")
-		return
-	}
-
 	user := interactionUser(i)
 	if user == nil {
 		respond(s, i, "❌ Could not detect Discord user.")
@@ -303,11 +299,6 @@ func (b *Bot) onDomainAdd(
 	i *discordgo.InteractionCreate,
 	sub *discordgo.ApplicationCommandInteractionDataOption,
 ) {
-	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
-		respond(s, i, "❌ You are not allowed to use this command.")
-		return
-	}
-
 	user := interactionUser(i)
 	if user == nil {
 		respond(s, i, "❌ Could not detect Discord user.")
@@ -362,6 +353,7 @@ func (b *Bot) onDomainAdd(
 
 	editResponse(s, i, "✅ Pull request created: "+prURL)
 }
+
 func (b *Bot) onRegistryCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
 		respond(s, i, "❌ You are not allowed to use this command.")
@@ -529,7 +521,6 @@ func (b *Bot) onLink(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		DiscordName:    user.Username,
 		GitHubUsername: githubUsername,
 	})
-
 	if err != nil {
 		editResponse(s, i, "❌ Failed to save link:\n```text\n"+err.Error()+"\n```")
 		return
