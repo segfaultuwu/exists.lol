@@ -11,7 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/segfaultuwu/exists.lol/internal/auth"
-	"github.com/segfaultuwu/exists.lol/internal/githubx"
+	"github.com/segfaultuwu/exists.lol/internal/existsbot/apiclient"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
 	"github.com/segfaultuwu/exists.lol/internal/validate"
 )
@@ -163,8 +163,10 @@ func (b *Bot) onDomainCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	case "info":
 		b.onDomainInfo(s, i, sub)
+
 	case "redirect":
 		b.onDomainRedirect(s, i, sub)
+
 	case "github-pages":
 		b.onDomainGithubPages(s, i, sub)
 
@@ -204,33 +206,31 @@ func (b *Bot) onDomainGithubPages(
 		return
 	}
 
-	// GitHub Pages verification record:
-	// _github-pages-challenge-<githubUsername>.<subdomain>
 	recordName := strings.Join([]string{
 		"_github-pages-challenge-" + githubUsername,
 		subdomain,
 	}, ".")
 
-	req := githubx.CreateDomainPROptions{
-		DiscordUsername: user.Username,
-		DiscordID:       user.ID,
-		GitHubUsername:  githubUsername,
-		Subdomain:       recordName,
-		RecordType:      "TXT",
-		Value:           value,
-	}
+	respond(s, i, "⏳ Creating GitHub Pages verification record...")
 
-	prURL, err := b.gh.CreateDomainPR(context.Background(), req)
+	res, err := b.api.CreateDomain(context.Background(), apiclient.CreateDomainRequest{
+		DiscordID:      user.ID,
+		Username:       user.Username,
+		GitHubUsername: githubUsername,
+		Subdomain:      recordName,
+		Records: map[string][]string{
+			"TXT": []string{value},
+		},
+	})
 	if err != nil {
-		respond(s, i, "❌ Failed to create GitHub Pages verification PR: "+err.Error())
+		editResponse(s, i, "❌ Failed to create GitHub Pages verification record through local API:\n```text\n"+err.Error()+"\n```")
 		return
 	}
 
-	respond(s, i, fmt.Sprintf(
-		"✅ Created GitHub Pages verification request.\n\nRecord:\n`%s.exists.lol`\n\nType:\n`TXT`\n\nValue:\n`%s`\n\nPR:\n%s",
-		recordName,
+	editResponse(s, i, fmt.Sprintf(
+		"✅ Created GitHub Pages verification record.\n\nRecord:\n`%s`\n\nType:\n`TXT`\n\nValue:\n`%s`",
+		res.FQDN,
 		value,
-		prURL,
 	))
 }
 
@@ -276,30 +276,24 @@ func (b *Bot) onDomainRedirect(
 		return
 	}
 
-	if _, taken := b.registry.Get(domain); taken {
-		respond(s, i, "❌ `"+domain+".exists.lol` is already taken.")
-		return
-	}
+	respond(s, i, "⏳ Creating redirect `"+domain+".exists.lol`...")
 
-	respond(s, i, "⏳ Creating redirect pull request for `"+domain+".exists.lol`...")
-
-	prURL, err := b.gh.CreateDomainPR(context.Background(), githubx.CreateDomainPROptions{
-		DiscordUsername: user.Username,
-		DiscordID:       user.ID,
-		GitHubUsername:  linkedUser.GitHubUsername,
-		Subdomain:       domain,
-		RecordType:      "CNAME",
-		Value:           b.cfg.RedirectCNAME,
-		ExtraRecords: map[string]string{
-			"REDIRECT": target,
+	res, err := b.api.CreateDomain(context.Background(), apiclient.CreateDomainRequest{
+		DiscordID:      user.ID,
+		Username:       user.Username,
+		GitHubUsername: linkedUser.GitHubUsername,
+		Subdomain:      domain,
+		Records: map[string][]string{
+			"CNAME":    []string{b.cfg.RedirectCNAME},
+			"REDIRECT": []string{target},
 		},
 	})
 	if err != nil {
-		editResponse(s, i, "❌ Failed to create pull request:\n```text\n"+err.Error()+"\n```")
+		editResponse(s, i, "❌ Failed to create redirect through local API:\n```text\n"+err.Error()+"\n```")
 		return
 	}
 
-	editResponse(s, i, "✅ Redirect pull request created: "+prURL)
+	editResponse(s, i, "✅ Redirect created: `"+res.FQDN+"` → "+target)
 }
 
 func (b *Bot) onDomainInfo(
@@ -313,12 +307,10 @@ func (b *Bot) onDomainInfo(
 		return
 	}
 
-	input = strings.TrimSuffix(input, ".")
-	input = strings.TrimSuffix(input, ".exists.lol")
-	input = strings.ToLower(input)
+	input = NormalizeSubdomain(input)
 
-	domain, ok := b.registry.Get(input)
-	if !ok {
+	domain, err := b.api.GetDomain(context.Background(), input)
+	if err != nil {
 		respond(s, i, "❌ `"+input+".exists.lol` was not found in registry.")
 		return
 	}
@@ -326,8 +318,8 @@ func (b *Bot) onDomainInfo(
 	var out strings.Builder
 
 	out.WriteString("🌐 `")
-	out.WriteString(input)
-	out.WriteString(".exists.lol`\n\n")
+	out.WriteString(domain.FQDN)
+	out.WriteString("`\n\n")
 
 	out.WriteString("**Owner**\n")
 	out.WriteString("Username: `")
@@ -335,11 +327,11 @@ func (b *Bot) onDomainInfo(
 	out.WriteString("`\n")
 
 	out.WriteString("GitHub: `@")
-	out.WriteString(domain.Owner.GitHubUsername)
+	out.WriteString(domain.Owner.GitHub)
 	out.WriteString("`\n")
 
 	out.WriteString("Discord: <@")
-	out.WriteString(domain.Owner.DiscordID)
+	out.WriteString(domain.Owner.Discord)
 	out.WriteString(">\n\n")
 
 	out.WriteString("**Records**\n")
@@ -388,18 +380,21 @@ func (b *Bot) onDomainAdd(
 		return
 	}
 
-	respond(s, i, "⏳ Creating pull request for `"+subdomain+".exists.lol`...")
+	subdomain = NormalizeSubdomain(subdomain)
 
-	prURL, err := b.gh.CreateDomainPR(context.Background(), githubx.CreateDomainPROptions{
-		DiscordUsername: user.Username,
-		DiscordID:       user.ID,
-		GitHubUsername:  linkedUser.GitHubUsername,
-		Subdomain:       subdomain,
-		RecordType:      recordType,
-		Value:           value,
+	respond(s, i, "⏳ Creating domain `"+subdomain+".exists.lol`...")
+
+	res, err := b.api.CreateDomain(context.Background(), apiclient.CreateDomainRequest{
+		DiscordID:      user.ID,
+		Username:       user.Username,
+		GitHubUsername: linkedUser.GitHubUsername,
+		Subdomain:      subdomain,
+		Records: map[string][]string{
+			recordType: []string{value},
+		},
 	})
 	if err != nil {
-		editResponse(s, i, "❌ Failed to create pull request:\n```text\n"+err.Error()+"\n```")
+		editResponse(s, i, "❌ Failed to create domain through local API:\n```text\n"+err.Error()+"\n```")
 		return
 	}
 
@@ -407,14 +402,14 @@ func (b *Bot) onDomainAdd(
 		Subdomain:  subdomain,
 		RecordType: recordType,
 		Value:      value,
-		Status:     "pending",
+		Status:     "active",
 	})
 	if err != nil {
-		editResponse(s, i, "⚠️ Pull request created, but failed to save domain locally:\n"+prURL+"\n```text\n"+err.Error()+"\n```")
+		editResponse(s, i, "⚠️ Domain created, but failed to save domain locally:\n```text\n"+err.Error()+"\n```")
 		return
 	}
 
-	editResponse(s, i, "✅ Pull request created: "+prURL)
+	editResponse(s, i, "✅ Domain created: `"+res.FQDN+"`")
 }
 
 func (b *Bot) onRegistryCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -447,7 +442,11 @@ func (b *Bot) onRegistryDump(s *discordgo.Session, i *discordgo.InteractionCreat
 		return
 	}
 
-	all := b.registry.All()
+	all, err := b.api.ListDomains(context.Background())
+	if err != nil {
+		respond(s, i, "❌ Failed to fetch registry through local API:\n```text\n"+err.Error()+"\n```")
+		return
+	}
 
 	if len(all) == 0 {
 		respond(s, i, "ℹ️ Registry is empty.")
@@ -456,15 +455,14 @@ func (b *Bot) onRegistryDump(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	lines := make([]string, 0, len(all))
 
-	for subdomain, domain := range all {
+	for _, domain := range all {
 		var line strings.Builder
 
-		line.WriteString(subdomain)
-		line.WriteString(".exists.lol")
+		line.WriteString(domain.FQDN)
 		line.WriteString(" | discord_id=")
-		line.WriteString(domain.Owner.DiscordID)
+		line.WriteString(domain.Owner.Discord)
 		line.WriteString(" | github=")
-		line.WriteString(domain.Owner.GitHubUsername)
+		line.WriteString(domain.Owner.GitHub)
 
 		lines = append(lines, line.String())
 	}
@@ -479,14 +477,13 @@ func (b *Bot) onRegistryDump(s *discordgo.Session, i *discordgo.InteractionCreat
 }
 
 func (b *Bot) onRegistryReload(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if err := b.registry.Reload(b.cfg.RegistryDir); err != nil {
-		respond(s, i, "❌ Failed to reload registry:\n```text\n"+err.Error()+"\n```")
+	res, err := b.api.ReloadRegistry(context.Background())
+	if err != nil {
+		respond(s, i, "❌ Failed to reload registry through local API:\n```text\n"+err.Error()+"\n```")
 		return
 	}
 
-	count := len(b.registry.All())
-
-	respond(s, i, fmt.Sprintf("✅ Registry reloaded. Loaded `%d` domains.", count))
+	respond(s, i, fmt.Sprintf("✅ Registry reloaded. Loaded `%d` domains.", res.Domains))
 }
 
 func (b *Bot) onDomainCheck(
@@ -507,16 +504,21 @@ func (b *Bot) onDomainCheck(
 		return
 	}
 
-	domains := b.registry.ByDiscordID(target.ID)
+	all, err := b.api.ListDomains(context.Background())
+	if err != nil {
+		respond(s, i, "❌ Failed to fetch domains through local API:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	domains := make([]apiclient.DomainResponse, 0)
+
+	for _, domain := range all {
+		if domain.Owner.Discord == target.ID {
+			domains = append(domains, domain)
+		}
+	}
 
 	if len(domains) == 0 {
-		errors := b.registry.LastErrors()
-
-		if len(errors) > 0 {
-			respond(s, i, "ℹ️ This user has no domains.\n\n⚠️ Registry has skipped files. Use `/registry reload` to see errors.")
-			return
-		}
-
 		respond(s, i, "ℹ️ This user has no domains.")
 		return
 	}
@@ -527,14 +529,14 @@ func (b *Bot) onDomainCheck(
 	out.WriteString(target.ID)
 	out.WriteString(">:\n\n")
 
-	for subdomain, domain := range domains {
+	for _, domain := range domains {
 		out.WriteString("• `")
-		out.WriteString(subdomain)
-		out.WriteString(".exists.lol`")
+		out.WriteString(domain.FQDN)
+		out.WriteString("`\n")
 
 		for recordType, values := range domain.Records {
 			for _, value := range values {
-				out.WriteString("• `")
+				out.WriteString("  • `")
 				out.WriteString(recordType)
 				out.WriteString(" ")
 				out.WriteString(value)

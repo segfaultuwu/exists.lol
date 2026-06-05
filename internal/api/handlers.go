@@ -39,10 +39,29 @@ func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Subdomain = strings.ToLower(strings.TrimSpace(req.Subdomain))
+	req.Subdomain = normalizeSubdomain(req.Subdomain)
+	req.Username = strings.TrimSpace(req.Username)
+	req.GitHubUsername = strings.TrimSpace(req.GitHubUsername)
+	req.DiscordID = strings.TrimSpace(req.DiscordID)
+	req.Records = normalizeRecords(req.Records)
 
 	if req.Subdomain == "" {
 		writeError(w, http.StatusBadRequest, "subdomain is required")
+		return
+	}
+
+	if req.Username == "" {
+		writeError(w, http.StatusBadRequest, "username is required")
+		return
+	}
+
+	if req.GitHubUsername == "" {
+		writeError(w, http.StatusBadRequest, "github_username is required")
+		return
+	}
+
+	if req.DiscordID == "" {
+		writeError(w, http.StatusBadRequest, "discord_id is required")
 		return
 	}
 
@@ -65,22 +84,6 @@ func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 		Records: req.Records,
 	}
 
-	for recordType, values := range req.Records {
-		recordType = strings.ToUpper(strings.TrimSpace(recordType))
-
-		switch recordType {
-		case "A", "AAAA", "CNAME", "TXT":
-		default:
-			writeError(w, http.StatusBadRequest, "unsupported record type: "+recordType)
-			return
-		}
-
-		if len(values) == 0 {
-			writeError(w, http.StatusBadRequest, "record has no values: "+recordType)
-			return
-		}
-	}
-
 	if err := s.registry.Add(s.registryDir, req.Subdomain, domain); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -91,6 +94,18 @@ func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 		Subdomain: req.Subdomain,
 		FQDN:      req.Subdomain + "." + s.baseDomain,
 		Message:   "domain created",
+	})
+}
+
+func (s *Server) handleReloadRegistry(w http.ResponseWriter, r *http.Request) {
+	if err := s.registry.Reload(s.registryDir); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, ReloadRegistryResponse{
+		OK:      true,
+		Domains: len(s.registry.All()),
 	})
 }
 
@@ -108,6 +123,7 @@ func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 	subdomain := strings.TrimSpace(chi.URLParam(r, "subdomain"))
+	subdomain = normalizeSubdomain(subdomain)
 
 	if subdomain == "" {
 		writeError(w, http.StatusBadRequest, "missing subdomain")
@@ -133,7 +149,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 
 	var errors []string
 
-	req.Subdomain = strings.ToLower(strings.TrimSpace(req.Subdomain))
+	req.Subdomain = normalizeSubdomain(req.Subdomain)
 	req.Type = strings.ToUpper(strings.TrimSpace(req.Type))
 	req.Value = strings.TrimSpace(req.Value)
 
@@ -154,7 +170,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch req.Type {
-	case "A", "AAAA", "CNAME", "TXT":
+	case "A", "AAAA", "CNAME", "TXT", "MX", "REDIRECT":
 	default:
 		errors = append(errors, "unsupported record type")
 	}
@@ -177,6 +193,43 @@ func (s *Server) domainResponse(subdomain string, domain registry.DomainFile) Do
 			GitHub:   domain.Owner.GitHubUsername,
 		},
 	}
+}
+
+func normalizeSubdomain(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.TrimSuffix(value, ".")
+	value = strings.TrimSuffix(value, ".exists.lol")
+	value = strings.ToLower(value)
+
+	return value
+}
+
+func normalizeRecords(records map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(records))
+
+	for recordType, values := range records {
+		recordType = strings.ToUpper(strings.TrimSpace(recordType))
+		if recordType == "" {
+			continue
+		}
+
+		cleanValues := make([]string, 0, len(values))
+
+		for _, value := range values {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				continue
+			}
+
+			cleanValues = append(cleanValues, value)
+		}
+
+		if len(cleanValues) > 0 {
+			out[recordType] = cleanValues
+		}
+	}
+
+	return out
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

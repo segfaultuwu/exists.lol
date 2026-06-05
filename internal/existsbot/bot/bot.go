@@ -8,6 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/segfaultuwu/exists.lol/internal/config"
+	"github.com/segfaultuwu/exists.lol/internal/existsbot/apiclient"
 	"github.com/segfaultuwu/exists.lol/internal/githubx"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
 	"github.com/segfaultuwu/exists.lol/internal/registry"
@@ -20,6 +21,7 @@ type Bot struct {
 	dg       *discordgo.Session
 	users    *users.Store
 	registry *registry.Registry
+	api      *apiclient.Client
 }
 
 func New(cfg config.Config) *Bot {
@@ -27,6 +29,8 @@ func New(cfg config.Config) *Bot {
 	if err != nil {
 		log.Fatal("failed to open users db:", err)
 	}
+
+	apiClient := apiclient.New(cfg.API.InternalURL, cfg.API.Token)
 
 	reg := registry.New()
 	if err := reg.Reload(cfg.RegistryDir); err != nil {
@@ -45,6 +49,8 @@ func New(cfg config.Config) *Bot {
 
 		users:    userStore,
 		registry: reg,
+
+		api: apiClient,
 	}
 }
 

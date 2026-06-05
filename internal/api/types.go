@@ -51,3 +51,8 @@ type CreateDomainResponse struct {
 	FQDN      string `json:"fqdn"`
 	Message   string `json:"message"`
 }
+
+type ReloadRegistryResponse struct {
+	OK      bool `json:"ok"`
+	Domains int  `json:"domains"`
+}
