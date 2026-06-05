@@ -16,7 +16,8 @@ FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates git wget
+RUN apk add --no-cache ca-certificates git wget && \
+    git config --global --add safe.directory /app
 
 COPY --from=builder /out/existsbot /app/existsbot
 
