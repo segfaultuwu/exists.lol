@@ -68,7 +68,7 @@ func Load() Config {
 			Enabled:     os.Getenv("API_ENABLED") == "true",
 			Host:        envString("API_HOST", "0.0.0.0"),
 			Port:        envInt("API_PORT", 8080),
-			PublicURL:   envString("API_PUBLIC_URL", "http://localhost:8080"),
+			PublicURL:   envString("PUBLIC_BASE_URL", "http://localhost:8080"),
 			Token:       envString("API_TOKEN", ""),
 			InternalURL: envString("API_INTERNAL_URL", "http://localhost:8080"),
 		},
