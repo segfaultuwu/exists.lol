@@ -1,69 +1,54 @@
 APP_NAME := existsbot
-MAIN := ./cmd/existsbot
-BIN_DIR := bin
-BIN := $(BIN_DIR)/$(APP_NAME)
+PKG := ./cmd/existsbot
+OUT_DIR ?= bin
 
-SERVICE_NAME := existsbot
-SERVICE_FILE := ./services/existsbot.service
-SYSTEMD_DIR := /etc/systemd/system
-SYSTEM_SERVICE := $(SYSTEMD_DIR)/$(SERVICE_NAME).service
+VERSION := $(or $(VERSION),dev)
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-GO := go
+LDFLAGS := -X github.com/segfaultuwu/exists.lol/internal/version.Version=$(VERSION) \
+           -X github.com/segfaultuwu/exists.lol/internal/version.Commit=$(COMMIT) \
+           -X github.com/segfaultuwu/exists.lol/internal/version.BuildDate=$(BUILD_DATE)
 
-ifneq (,$(wildcard .env))
-	include .env
-	export
-endif
+.PHONY: all build run dev test fmt vet tidy check clean docker-build docker-up docker-down docker-logs
 
-.PHONY: dev build run clean test fmt tidy install install-system uninstall restart logs status
-
-dev:
-	$(GO) run $(MAIN)
+all: build
 
 build:
-	mkdir -p $(BIN_DIR)
-	$(GO) build -o $(BIN) $(MAIN)
-	go build \
-        -ldflags "\
-            -X github.com/segfaultuwu/exists.lol/internal/version.Version=$(cat version.txt)\
-            -X github.com/segfaultuwu/exists.lol/internal/version.Commit=$(git rev-parse --short HEAD) \
-            -X github.com/segfaultuwu/exists.lol/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        -o bin/existsbot ./cmd/existsbot
+	mkdir -p $(OUT_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(APP_NAME) $(PKG)
 
-run: build
-	./$(BIN)
+run:
+	go run $(PKG)
 
-install: install-system
-
-install-system: build
-	sudo cp $(SERVICE_FILE) $(SYSTEM_SERVICE)
-	sudo systemctl daemon-reload
-	sudo systemctl enable --now $(SERVICE_NAME)
-
-uninstall:
-	sudo systemctl disable --now $(SERVICE_NAME) || true
-	sudo rm -f $(SYSTEM_SERVICE)
-	sudo systemctl daemon-reload
-
-restart: build
-	sudo systemctl restart $(SERVICE_NAME)
-
-logs:
-	journalctl -u $(SERVICE_NAME) -f
-
-status:
-	systemctl status $(SERVICE_NAME)
-
-clean:
-	rm -rf $(BIN_DIR)
-	rm -f coverage.out
-	$(GO) clean
+dev:
+	go run $(PKG)
 
 test:
-	$(GO) test ./...
+	go test ./...
 
 fmt:
-	$(GO) fmt ./...
+	go fmt ./...
+
+vet:
+	go vet ./...
 
 tidy:
-	$(GO) mod tidy
+	go mod tidy
+
+check: fmt vet test
+
+clean:
+	rm -rf bin out
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up -d --build
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f existsbot
