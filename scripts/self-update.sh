@@ -1,18 +1,9 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+#!/usr/bin/env sh
+set -eu
 
 APP_DIR="${APP_DIR:-/app}"
-LOG_DIR="${LOG_DIR:-/app/data}"
-LOG_FILE="${LOG_FILE:-$LOG_DIR/self-update.log}"
-
-MODE="${UPDATE_MODE:-docker}" # docker albo systemd
+MODE="${UPDATE_MODE:-docker}"
 SERVICE="${SYSTEMD_SERVICE:-existsbot}"
-
-cd "$APP_DIR"
-
-mkdir -p "$LOG_DIR"
-
-exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "========================================"
 echo "exists.lol self-update"
@@ -21,43 +12,60 @@ echo "dir: $APP_DIR"
 echo "mode: $MODE"
 echo "========================================"
 
-echo "[1/7] git safe.directory"
+if [ ! -d "$APP_DIR" ]; then
+  echo "APP_DIR does not exist: $APP_DIR"
+  exit 1
+fi
+
+cd "$APP_DIR"
+
+echo "[1/6] git safe.directory"
 git config --global --add safe.directory "$APP_DIR" || true
 
-echo "[2/7] git fetch"
-git fetch --all --prune
-
-echo "[3/7] current revision"
-OLD_REV="$(git rev-parse --short HEAD || echo unknown)"
+echo "[2/6] current revision"
+OLD_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 echo "old rev: $OLD_REV"
 
-echo "[4/7] pull"
+echo "[3/6] git fetch/pull"
+git fetch --all --prune
 git pull --ff-only
 
-NEW_REV="$(git rev-parse --short HEAD || echo unknown)"
+NEW_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 echo "new rev: $NEW_REV"
 
-echo "[5/7] go mod tidy"
-go mod tidy
+echo "[4/6] mode-specific update"
 
-echo "[6/7] build check"
-go test ./...
-go build -o bin/existsbot ./cmd/existsbot
-
-echo "[7/7] restart"
 case "$MODE" in
   docker)
-    echo "restarting docker compose"
+    echo "docker mode: rebuilding via docker compose"
+
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "docker command not found inside container"
+      echo "Install docker-cli in Dockerfile and mount /var/run/docker.sock"
+      exit 1
+    fi
+
     docker compose up -d --build --force-recreate
     ;;
 
   systemd)
-    echo "restarting systemd service: $SERVICE"
+    echo "systemd mode: building locally"
+
+    if ! command -v go >/dev/null 2>&1; then
+      echo "go command not found"
+      exit 1
+    fi
+
+    go mod tidy
+    go test ./...
+    mkdir -p bin
+    go build -o bin/existsbot ./cmd/existsbot
+
     systemctl restart "$SERVICE"
     ;;
 
   none)
-    echo "UPDATE_MODE=none, not restarting"
+    echo "UPDATE_MODE=none, skipping restart/build"
     ;;
 
   *)
@@ -66,8 +74,9 @@ case "$MODE" in
     ;;
 esac
 
-echo "========================================"
-echo "update finished"
+echo "[5/6] final revision"
 echo "old rev: $OLD_REV"
 echo "new rev: $NEW_REV"
-echo "========================================"
+
+echo "[6/6] done"
+echo "self-update finished"
