@@ -84,7 +84,7 @@ func (b *Bot) updatePresence(s *discordgo.Session) {
 }
 
 func (b *Bot) startPresenceUpdater() {
-	b.updatePresence()
+	b.updatePresence(b.dg)
 
 	ticker := time.NewTicker(60 * time.Second)
 
@@ -94,7 +94,7 @@ func (b *Bot) startPresenceUpdater() {
 		for {
 			select {
 			case <-ticker.C:
-				b.updatePresence()
+				b.updatePresence(b.dg)
 			}
 		}
 	}()
