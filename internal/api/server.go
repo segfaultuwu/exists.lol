@@ -60,6 +60,7 @@ func New(cfg Config, reg *registry.Registry) *Server {
 }
 
 // NewLegacy creates a server with the old configuration format (for backwards compatibility)
+// Note: This doesn't support GitHub PR creation, only local file storage
 func NewLegacy(host string, port int, baseDomain string, registryDir string, reg *registry.Registry) *Server {
 	return &Server{
 		addr:        fmt.Sprintf("%s:%d", host, port),
@@ -67,6 +68,7 @@ func NewLegacy(host string, port int, baseDomain string, registryDir string, reg
 		baseDomain:  baseDomain,
 		registryDir: registryDir,
 		apiToken:    reg.Token(),
+		// service is nil - legacy mode doesn't support PR creation
 	}
 }
 

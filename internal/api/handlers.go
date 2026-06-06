@@ -41,6 +41,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 // handleCreateDomain creates a new domain via GitHub pull request
 func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
+	// Check if service is available (needed for PR creation)
+	if s.service == nil {
+		writeError(w, http.StatusInternalServerError, "service not configured - GitHub PR creation not available")
+		return
+	}
+
 	var req CreateDomainRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

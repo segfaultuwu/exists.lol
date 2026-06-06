@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/segfaultuwu/exists.lol/internal/github"
@@ -28,6 +29,17 @@ type DomainServiceConfig struct {
 
 // NewDomainService creates a new domain service
 func NewDomainService(cfg DomainServiceConfig, reg *registry.Registry) *DomainService {
+	// Validate GitHub configuration
+	if cfg.GitHubToken == "" {
+		log.Printf("warning: GitHub token is empty - PR creation will fail")
+	}
+	if cfg.GitHubOwner == "" {
+		log.Printf("warning: GitHub owner is empty")
+	}
+	if cfg.GitHubRepo == "" {
+		log.Printf("warning: GitHub repo is empty")
+	}
+
 	ghClient := github.New(cfg.GitHubToken, cfg.GitHubOwner, cfg.GitHubRepo)
 
 	return &DomainService{
@@ -116,6 +128,10 @@ func (s *DomainService) CreateDomain(ctx context.Context, req CreateDomainReques
 	}
 
 	// Create GitHub PR
+	if s.ghClient == nil {
+		return nil, fmt.Errorf("GitHub client not configured")
+	}
+
 	ghReq := github.DomainRequest{
 		Subdomain:     subdomain,
 		Owner:         owner,

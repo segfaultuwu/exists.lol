@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/go-github/v64/github"
@@ -38,6 +39,14 @@ type PRResult struct {
 
 // New creates a new GitHub client
 func New(token, owner, repo string) *Client {
+	// Log configuration for debugging
+	if token == "" {
+		log.Printf("WARNING: GitHub token is empty")
+	} else {
+		log.Printf("DEBUG: GitHub client configured with token (length: %d)", len(token))
+	}
+	log.Printf("DEBUG: GitHub client for repository: %s/%s", owner, repo)
+
 	ctx := context.Background()
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{
@@ -67,6 +76,9 @@ func (c *Client) UserExists(ctx context.Context, username string) (bool, error) 
 
 // CreateDomainPR creates a new domain via pull request
 func (c *Client) CreateDomainPR(ctx context.Context, req DomainRequest) (*PRResult, error) {
+	log.Printf("DEBUG: CreateDomainPR called for subdomain: %s", req.Subdomain)
+	log.Printf("DEBUG: Repository: %s/%s", c.owner, c.repo)
+
 	baseBranch := "main"
 	filePath := fmt.Sprintf("domains/%s.json", req.Subdomain)
 
@@ -81,18 +93,28 @@ func (c *Client) CreateDomainPR(ctx context.Context, req DomainRequest) (*PRResu
 		},
 	)
 	if err == nil {
+		log.Printf("DEBUG: Domain file already exists: %s", filePath)
 		return nil, fmt.Errorf("subdomain %q already exists", req.Subdomain)
 	}
 
 	if resp == nil || resp.StatusCode != 404 {
+		statusCode := 0
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+		log.Printf("DEBUG: Error checking domain file: %v, status: %d", err, statusCode)
 		return nil, fmt.Errorf("check domain file: %w", err)
 	}
 
+	log.Printf("DEBUG: Domain does not exist, proceeding with PR creation")
+
 	// Create a new branch
 	newBranch := fmt.Sprintf("bot/add-%s-%d", req.Subdomain, time.Now().Unix())
+	log.Printf("DEBUG: Creating branch: %s", newBranch)
 
 	ref, _, err := c.gh.Git.GetRef(ctx, c.owner, c.repo, "refs/heads/"+baseBranch)
 	if err != nil {
+		log.Printf("DEBUG: Failed to get main ref: %v", err)
 		return nil, fmt.Errorf("get main ref: %w", err)
 	}
 
@@ -103,8 +125,11 @@ func (c *Client) CreateDomainPR(ctx context.Context, req DomainRequest) (*PRResu
 		},
 	})
 	if err != nil {
+		log.Printf("DEBUG: Failed to create branch: %v", err)
 		return nil, fmt.Errorf("create branch: %w", err)
 	}
+
+	log.Printf("DEBUG: Branch %s created successfully", newBranch)
 
 	// Create domain file content
 	domain := registry.DomainFile{
@@ -126,8 +151,11 @@ func (c *Client) CreateDomainPR(ctx context.Context, req DomainRequest) (*PRResu
 		Branch:  github.String(newBranch),
 	})
 	if err != nil {
+		log.Printf("DEBUG: Failed to create domain file: %v", err)
 		return nil, fmt.Errorf("create domain file: %w", err)
 	}
+
+	log.Printf("DEBUG: Domain file created in branch %s", newBranch)
 
 	// Create pull request
 	prTitle := req.PRTitle
@@ -146,6 +174,7 @@ func (c *Client) CreateDomainPR(ctx context.Context, req DomainRequest) (*PRResu
 		)
 	}
 
+	log.Printf("DEBUG: Creating pull request with title: %s", prTitle)
 	pr, _, err := c.gh.PullRequests.Create(ctx, c.owner, c.repo, &github.NewPullRequest{
 		Title: github.String(prTitle),
 		Head:  github.String(newBranch),
@@ -153,8 +182,11 @@ func (c *Client) CreateDomainPR(ctx context.Context, req DomainRequest) (*PRResu
 		Body:  github.String(prBody),
 	})
 	if err != nil {
+		log.Printf("DEBUG: Failed to create pull request: %v", err)
 		return nil, fmt.Errorf("create pull request: %w", err)
 	}
+
+	log.Printf("DEBUG: Pull request created successfully: %s", pr.GetHTMLURL())
 
 	return &PRResult{
 		URL:       pr.GetHTMLURL(),
