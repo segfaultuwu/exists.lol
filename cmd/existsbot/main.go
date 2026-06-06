@@ -12,6 +12,7 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Initialize registry
 	reg := registry.New()
 
 	if err := reg.Reload(cfg.RegistryDir); err != nil {
@@ -25,16 +26,22 @@ func main() {
 		log.Printf("registry warning: %s", err)
 	}
 
+	// Create and start bot
 	app := bot.New(cfg)
 
+	// Start API server if enabled
 	if cfg.API.Enabled {
-		apiServer := api.New(
-			cfg.API.Host,
-			cfg.API.Port,
-			cfg.RootDomain,
-			cfg.RegistryDir,
-			reg,
-		)
+		apiServer := api.New(api.Config{
+			Host:        cfg.API.Host,
+			Port:        cfg.API.Port,
+			BaseDomain:  cfg.RootDomain,
+			RootDomain:  cfg.RootDomain,
+			RegistryDir: cfg.RegistryDir,
+			APIToken:    cfg.API.Token,
+			GitHubToken: cfg.GitHubToken,
+			GitHubOwner: cfg.GitHubOwner,
+			GitHubRepo:  cfg.GitHubRepo,
+		}, reg)
 
 		go func() {
 			log.Printf("api listening on %s:%d", cfg.API.Host, cfg.API.Port)
@@ -44,6 +51,8 @@ func main() {
 			}
 		}()
 	}
+
+	// Start bot
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}

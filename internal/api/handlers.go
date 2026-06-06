@@ -7,7 +7,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/segfaultuwu/exists.lol/internal/registry"
+	"github.com/segfaultuwu/exists.lol/internal/service"
 )
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, HealthResponse{
+		Status: "healthy",
+		OK:     true,
+	})
+}
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, StatusResponse{
@@ -22,15 +30,16 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	domains := s.registry.All()
+	stats := s.service.GetStats()
 
 	writeJSON(w, http.StatusOK, StatsResponse{
-		DomainsTotal: len(domains),
-		Active:       len(domains),
-		Suspended:    0,
+		DomainsTotal: stats.DomainsTotal,
+		Active:       stats.Active,
+		Suspended:    stats.Suspended,
 	})
 }
 
+// handleCreateDomain creates a new domain via GitHub pull request
 func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 	var req CreateDomainRequest
 
@@ -39,83 +48,81 @@ func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Subdomain = normalizeSubdomain(req.Subdomain)
-	req.Username = strings.TrimSpace(req.Username)
-	req.GitHubUsername = strings.TrimSpace(req.GitHubUsername)
-	req.DiscordID = strings.TrimSpace(req.DiscordID)
-	req.Records = normalizeRecords(req.Records)
+	// Use service to create domain via PR
+	svcReq := service.CreateDomainRequest{
+		Subdomain:      req.Subdomain,
+		Username:       req.Username,
+		GitHubUsername: req.GitHubUsername,
+		DiscordID:      req.DiscordID,
+		Records:        req.Records,
+		PRTitle:        req.PRTitle,
+		PRDescription:  req.PRDescription,
+	}
 
-	if req.Subdomain == "" {
-		writeError(w, http.StatusBadRequest, "subdomain is required")
+	response, err := s.service.CreateDomain(r.Context(), svcReq)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if req.Username == "" {
-		writeError(w, http.StatusBadRequest, "username is required")
-		return
+	// Convert service response to API response
+	apiResponse := CreateDomainResponse{
+		OK:        response.Success,
+		Subdomain: response.Subdomain,
+		FQDN:      response.FQDN,
+		Message:   response.Message,
 	}
 
-	if req.GitHubUsername == "" {
-		writeError(w, http.StatusBadRequest, "github_username is required")
-		return
+	if response.PullRequest != nil {
+		apiResponse.PullRequest = &PRInfo{
+			URL:    response.PullRequest.URL,
+			Number: response.PullRequest.Number,
+			Title:  response.PullRequest.Title,
+			Branch: response.PullRequest.Branch,
+		}
 	}
 
-	if req.DiscordID == "" {
-		writeError(w, http.StatusBadRequest, "discord_id is required")
-		return
+	if response.Error != "" {
+		apiResponse.Error = response.Error
 	}
 
-	if len(req.Records) == 0 {
-		writeError(w, http.StatusBadRequest, "records are required")
-		return
+	statusCode := http.StatusCreated
+	if !response.Success {
+		statusCode = http.StatusBadRequest
 	}
 
-	if _, exists := s.registry.Get(req.Subdomain); exists {
-		writeError(w, http.StatusConflict, "subdomain already exists")
-		return
-	}
-
-	domain := registry.DomainFile{
-		Owner: registry.Owner{
-			Username:       req.Username,
-			GitHubUsername: req.GitHubUsername,
-			DiscordID:      req.DiscordID,
-		},
-		Records: req.Records,
-	}
-
-	if err := s.registry.Add(s.registryDir, req.Subdomain, domain); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, CreateDomainResponse{
-		OK:        true,
-		Subdomain: req.Subdomain,
-		FQDN:      req.Subdomain + "." + s.baseDomain,
-		Message:   "domain created",
-	})
+	writeJSON(w, statusCode, apiResponse)
 }
 
 func (s *Server) handleReloadRegistry(w http.ResponseWriter, r *http.Request) {
-	if err := s.registry.Reload(s.registryDir); err != nil {
+	if err := s.service.ReloadRegistry(s.registryDir); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	writeJSON(w, http.StatusOK, ReloadRegistryResponse{
 		OK:      true,
-		Domains: len(s.registry.All()),
+		Domains: s.service.GetStats().DomainsTotal,
 	})
 }
 
 func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
-	domains := s.registry.All()
+	domains := s.service.ListDomains()
 
 	out := make([]DomainResponse, 0, len(domains))
 
-	for subdomain, domain := range domains {
-		out = append(out, s.domainResponse(subdomain, domain))
+	for _, domain := range domains {
+		out = append(out, DomainResponse{
+			Subdomain: domain.Subdomain,
+			FQDN:      domain.FQDN,
+			Records:   domain.Records,
+			Status:    domain.Status,
+			Owner: Owner{
+				Username: domain.Owner.Username,
+				Discord:  domain.Owner.DiscordID,
+				GitHub:   domain.Owner.GitHubUsername,
+			},
+		})
 	}
 
 	writeJSON(w, http.StatusOK, out)
@@ -123,20 +130,29 @@ func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 	subdomain := strings.TrimSpace(chi.URLParam(r, "subdomain"))
-	subdomain = normalizeSubdomain(subdomain)
 
 	if subdomain == "" {
 		writeError(w, http.StatusBadRequest, "missing subdomain")
 		return
 	}
 
-	domain, ok := s.registry.Get(subdomain)
+	domain, ok := s.service.GetDomain(subdomain)
 	if !ok {
 		writeError(w, http.StatusNotFound, "domain not found")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, s.domainResponse(subdomain, domain))
+	writeJSON(w, http.StatusOK, DomainResponse{
+		Subdomain: domain.Subdomain,
+		FQDN:      domain.FQDN,
+		Records:   domain.Records,
+		Status:    domain.Status,
+		Owner: Owner{
+			Username: domain.Owner.Username,
+			Discord:  domain.Owner.DiscordID,
+			GitHub:   domain.Owner.GitHubUsername,
+		},
+	})
 }
 
 func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +181,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 		errors = append(errors, "value is required")
 	}
 
-	if _, exists := s.registry.Get(req.Subdomain); exists {
+	if s.registry.Contains(req.Subdomain) {
 		errors = append(errors, "subdomain already exists")
 	}
 
@@ -180,6 +196,8 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 		Errors: errors,
 	})
 }
+
+// Legacy handlers for backwards compatibility
 
 func (s *Server) domainResponse(subdomain string, domain registry.DomainFile) DomainResponse {
 	return DomainResponse{
@@ -200,7 +218,6 @@ func normalizeSubdomain(value string) string {
 	value = strings.TrimSuffix(value, ".")
 	value = strings.TrimSuffix(value, ".exists.lol")
 	value = strings.ToLower(value)
-
 	return value
 }
 

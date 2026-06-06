@@ -10,13 +10,18 @@ LDFLAGS := -X github.com/segfaultuwu/exists.lol/internal/version.Version=$(VERSI
            -X github.com/segfaultuwu/exists.lol/internal/version.Commit=$(COMMIT) \
            -X github.com/segfaultuwu/exists.lol/internal/version.BuildDate=$(BUILD_DATE)
 
-.PHONY: all build run dev test fmt vet tidy check clean docker-build docker-up docker-down docker-logs
+.PHONY: all build run dev test fmt vet tidy check clean docker-build docker-up docker-down docker-logs deps
 
 all: build
 
 build:
 	mkdir -p $(OUT_DIR)
 	go build -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(APP_NAME) $(PKG)
+
+# Build the existslol CLI tool
+existslol:
+	mkdir -p $(OUT_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/existslol ./cmd/existslol
 
 run:
 	go run $(PKG)

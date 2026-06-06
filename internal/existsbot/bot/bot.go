@@ -13,24 +13,28 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/segfaultuwu/exists.lol/internal/config"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/apiclient"
-	"github.com/segfaultuwu/exists.lol/internal/githubx"
+	"github.com/segfaultuwu/exists.lol/internal/github"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
 	"github.com/segfaultuwu/exists.lol/internal/registry"
+	"github.com/segfaultuwu/exists.lol/internal/service"
 	"github.com/segfaultuwu/exists.lol/internal/version"
 )
 
+// Bot represents the Discord bot application
 type Bot struct {
 	cfg config.Config
 
-	gh       *githubx.Client
-	dg       *discordgo.Session
-	users    *users.Store
-	registry *registry.Registry
-	api      *apiclient.Client
+	ghService *github.Client
+	dg        *discordgo.Session
+	users     *users.Store
+	registry  *registry.Registry
+	api       *apiclient.Client
+	domainSvc *service.DomainService
 
 	stopPresence chan struct{}
 }
 
+// New creates a new bot instance
 func New(cfg config.Config) *Bot {
 	userStore, err := users.Open(cfg.UsersDBPath)
 	if err != nil {
@@ -45,19 +49,25 @@ func New(cfg config.Config) *Bot {
 		log.Fatal("failed to load registry:", err)
 	}
 
+	// Create GitHub client
+	ghClient := github.New(cfg.GitHubToken, cfg.GitHubOwner, cfg.GitHubRepo)
+
+	// Create domain service
+	domainSvc := service.NewDomainService(service.DomainServiceConfig{
+		GitHubToken: cfg.GitHubToken,
+		GitHubOwner: cfg.GitHubOwner,
+		GitHubRepo:  cfg.GitHubRepo,
+		BaseDomain:  cfg.RootDomain,
+		RootDomain:  cfg.RootDomain,
+	}, reg)
+
 	return &Bot{
-		cfg: cfg,
-
-		gh: githubx.New(
-			cfg.GitHubToken,
-			cfg.GitHubOwner,
-			cfg.GitHubRepo,
-		),
-
-		users:    userStore,
-		registry: reg,
-		api:      apiClient,
-
+		cfg:          cfg,
+		ghService:    ghClient,
+		users:        userStore,
+		registry:     reg,
+		api:          apiClient,
+		domainSvc:    domainSvc,
 		stopPresence: make(chan struct{}),
 	}
 }

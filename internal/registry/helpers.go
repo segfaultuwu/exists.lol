@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-func normalizeRecords(records map[string][]string) map[string][]string {
+// NormalizeRecords cleans and normalizes DNS records
+func NormalizeRecords(records map[string][]string) map[string][]string {
 	out := make(map[string][]string, len(records))
 
 	for recordType, values := range records {
@@ -34,7 +35,8 @@ func normalizeRecords(records map[string][]string) map[string][]string {
 	return out
 }
 
-func validateDomainFile(subdomain string, domain DomainFile) error {
+// ValidateDomainFile validates a domain configuration
+func ValidateDomainFile(subdomain string, domain DomainFile) error {
 	if subdomain == "" {
 		return fmt.Errorf("subdomain is empty")
 	}
@@ -90,7 +92,8 @@ func validateDomainFile(subdomain string, domain DomainFile) error {
 	return nil
 }
 
-func gitPull() error {
+// GitPull performs a git pull operation in the current directory
+func GitPull() error {
 	cmd := exec.Command("git", "pull", "--ff-only")
 
 	out, err := cmd.CombinedOutput()

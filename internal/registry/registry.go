@@ -9,22 +9,26 @@ import (
 	"sync"
 )
 
+// Registry stores domain configurations in memory
 type Registry struct {
 	mu         sync.RWMutex
 	domains    map[string]DomainFile
 	lastErrors []string
 }
 
+// New creates a new registry
 func New() *Registry {
 	return &Registry{
 		domains: make(map[string]DomainFile),
 	}
 }
 
+// Token returns the API token from environment
 func (r *Registry) Token() string {
 	return os.Getenv("API_TOKEN")
 }
 
+// Reload loads domain configurations from JSON files in the specified directory
 func (r *Registry) Reload(dir string) error {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -38,7 +42,7 @@ func (r *Registry) Reload(dir string) error {
 		return fmt.Errorf("create registry dir: %w", err)
 	}
 
-	if err := gitPull(); err != nil {
+	if err := GitPull(); err != nil {
 		reloadErrors = append(reloadErrors, "git pull failed: "+err.Error())
 	}
 
@@ -62,7 +66,7 @@ func (r *Registry) Reload(dir string) error {
 			continue
 		}
 
-		if err := validateDomainFile(name, domain); err != nil {
+		if err := ValidateDomainFile(name, domain); err != nil {
 			reloadErrors = append(reloadErrors, fmt.Sprintf("%s: invalid config: %v", path, err))
 			continue
 		}
@@ -79,6 +83,7 @@ func (r *Registry) Reload(dir string) error {
 	return nil
 }
 
+// Get retrieves a domain by subdomain
 func (r *Registry) Get(subdomain string) (DomainFile, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -87,6 +92,7 @@ func (r *Registry) Get(subdomain string) (DomainFile, bool) {
 	return domain, ok
 }
 
+// All returns all domains in the registry
 func (r *Registry) All() map[string]DomainFile {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -100,6 +106,7 @@ func (r *Registry) All() map[string]DomainFile {
 	return out
 }
 
+// LastErrors returns any errors that occurred during the last reload
 func (r *Registry) LastErrors() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -110,6 +117,7 @@ func (r *Registry) LastErrors() []string {
 	return out
 }
 
+// ByDiscordID returns all domains owned by a specific Discord user
 func (r *Registry) ByDiscordID(discordID string) map[string]DomainFile {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -125,46 +133,19 @@ func (r *Registry) ByDiscordID(discordID string) map[string]DomainFile {
 	return out
 }
 
-func (r *Registry) Add(dir, name string, domain DomainFile) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+// Contains checks if a subdomain exists in the registry
+func (r *Registry) Contains(subdomain string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	name = strings.ToLower(strings.TrimSpace(name))
-	if name == "" {
-		return fmt.Errorf("domain name is required")
-	}
+	_, exists := r.domains[subdomain]
+	return exists
+}
 
-	if _, exists := r.domains[name]; exists {
-		return fmt.Errorf("domain already exists")
-	}
+// Count returns the number of domains in the registry
+func (r *Registry) Count() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	domain.Owner.Username = strings.TrimSpace(domain.Owner.Username)
-	domain.Owner.GitHubUsername = strings.TrimSpace(domain.Owner.GitHubUsername)
-	domain.Owner.DiscordID = strings.TrimSpace(domain.Owner.DiscordID)
-	domain.Records = normalizeRecords(domain.Records)
-
-	if err := validateDomainFile(name, domain); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	path := filepath.Join(dir, name+".json")
-
-	data, err := json.MarshalIndent(domain, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	data = append(data, '\n')
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return err
-	}
-
-	r.domains[name] = domain
-
-	return nil
+	return len(r.domains)
 }

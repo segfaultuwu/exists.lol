@@ -8,29 +8,37 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config contains all application configuration
 type Config struct {
+	// Discord configuration
 	DiscordToken          string
 	DiscordAppID          string
 	DiscordGuild          string
 	DiscordRequiredRoleID string
 
+	// GitHub configuration
 	GitHubToken string
 	GitHubOwner string
 	GitHubRepo  string
 
+	// Storage configuration
 	LinksPath   string
 	UsersDBPath string
 
+	// Domain registry configuration
 	RegistryDir string
 
+	// System configuration
 	SelfUpdateScript string
 	SystemdService   string
 	RedirectCNAME    string
 	RootDomain       string
 
+	// API configuration
 	API APIConfig
 }
 
+// APIConfig contains API-specific configuration
 type APIConfig struct {
 	Enabled     bool
 	Host        string
@@ -40,30 +48,36 @@ type APIConfig struct {
 	InternalURL string
 }
 
+// Load loads configuration from environment variables
 func Load() Config {
 	_ = godotenv.Load()
 
 	cfg := Config{
+		// Discord configuration
 		DiscordToken:          os.Getenv("DISCORD_TOKEN"),
 		DiscordAppID:          os.Getenv("DISCORD_APP_ID"),
 		DiscordGuild:          os.Getenv("DISCORD_GUILD_ID"),
 		DiscordRequiredRoleID: os.Getenv("DISCORD_REQUIRED_ROLE_ID"),
 
+		// GitHub configuration
 		GitHubToken: os.Getenv("GITHUB_TOKEN"),
 		GitHubOwner: os.Getenv("GITHUB_OWNER"),
 		GitHubRepo:  os.Getenv("GITHUB_REPO"),
 
+		// Storage configuration
 		LinksPath:   os.Getenv("LINKS_PATH"),
 		UsersDBPath: os.Getenv("USERS_DB_PATH"),
 
+		// Domain registry configuration
 		RegistryDir: os.Getenv("REGISTRY_DIR"),
 
+		// System configuration
 		SelfUpdateScript: os.Getenv("SELF_UPDATE_SCRIPT"),
 		SystemdService:   os.Getenv("SYSTEMD_SERVICE"),
+		RedirectCNAME:    os.Getenv("REDIRECT_CNAME"),
+		RootDomain:       os.Getenv("ROOT_DOMAIN"),
 
-		RedirectCNAME: os.Getenv("REDIRECT_CNAME"),
-		RootDomain:    os.Getenv("ROOT_DOMAIN"),
-
+		// API configuration
 		API: APIConfig{
 			Enabled:     os.Getenv("API_ENABLED") == "true",
 			Host:        envString("API_HOST", "0.0.0.0"),
@@ -74,6 +88,7 @@ func Load() Config {
 		},
 	}
 
+	// Set defaults
 	if cfg.LinksPath == "" {
 		cfg.LinksPath = "data/links.json"
 	}
@@ -94,6 +109,7 @@ func Load() Config {
 		cfg.SystemdService = "existsbot"
 	}
 
+	// Validate required configuration
 	must("DISCORD_TOKEN", cfg.DiscordToken)
 	must("DISCORD_APP_ID", cfg.DiscordAppID)
 	must("DISCORD_GUILD_ID", cfg.DiscordGuild)
@@ -105,12 +121,14 @@ func Load() Config {
 	return cfg
 }
 
+// must ensures a configuration value is not empty
 func must(name, value string) {
 	if value == "" {
 		log.Fatalf("missing %s", name)
 	}
 }
 
+// envBool parses a boolean environment variable with fallback
 func envBool(key string, fallback bool) bool {
 	value := os.Getenv(key)
 	if value == "" {
@@ -125,6 +143,7 @@ func envBool(key string, fallback bool) bool {
 	return parsed
 }
 
+// envString returns an environment variable or fallback
 func envString(key, fallback string) string {
 	value := os.Getenv(key)
 	if value == "" {
@@ -134,6 +153,7 @@ func envString(key, fallback string) string {
 	return value
 }
 
+// envInt parses an integer environment variable with fallback
 func envInt(key string, fallback int) int {
 	value := os.Getenv(key)
 	if value == "" {

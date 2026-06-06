@@ -739,7 +739,7 @@ func (b *Bot) onLink(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	respond(s, i, "⏳ Checking GitHub user `"+githubUsername+"`...")
 
-	exists, err := b.gh.UserExists(context.Background(), githubUsername)
+	exists, err := b.ghService.UserExists(context.Background(), githubUsername)
 	if err != nil {
 		editResponse(s, i, "❌ Failed to check GitHub user:\n```text\n"+err.Error()+"\n```")
 		return
