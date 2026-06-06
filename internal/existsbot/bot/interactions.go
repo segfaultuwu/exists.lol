@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -218,12 +219,29 @@ func (b *Bot) onSelfVersion(
 	}
 
 	if includeBuildDate {
-		out.WriteString("Build date: `")
-		out.WriteString(version.BuildDate)
-		out.WriteString("`\n")
+		out.WriteString("Build date: ")
+		out.WriteString(discordTimestampRFC3339(version.BuildDate, "F"))
+		out.WriteString("\n")
+
+		out.WriteString("Built: ")
+		out.WriteString(discordTimestampRFC3339(version.BuildDate, "R"))
+		out.WriteString("\n")
 	}
 
 	respond(s, i, out.String())
+}
+
+func discordTimestampRFC3339(value, style string) string {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return "`" + value + "`"
+	}
+
+	if style == "" {
+		style = "F"
+	}
+
+	return "<t:" + strconv.FormatInt(t.Unix(), 10) + ":" + style + ">"
 }
 
 func (b *Bot) onSelfLogs(s *discordgo.Session, i *discordgo.InteractionCreate) {
