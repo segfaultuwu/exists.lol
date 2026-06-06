@@ -11,12 +11,11 @@ COPY . .
 
 RUN go build -o /out/existsbot ./cmd/existsbot
 
-
 FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates git wget && \
+RUN apk add --no-cache ca-certificates git wget docker-cli docker-cli-compose && \
     git config --global --add safe.directory /app
 
 COPY --from=builder /out/existsbot /app/existsbot

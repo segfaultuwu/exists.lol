@@ -78,12 +78,42 @@ func (b *Bot) onSelfCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	case "update":
 		b.onSelfUpdate(s, i)
 
+	case "logs":
+		b.onSelfLogs(s, i)
+
 	default:
 		respond(s, i, "❌ Unknown self subcommand.")
 	}
 }
 
+func (b *Bot) onSelfLogs(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	logPath := filepath.Join("data", "self-update.log")
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		respond(s, i, "❌ Failed to read update log:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	text := string(data)
+	if len(text) > 3500 {
+		text = text[len(text)-3500:]
+	}
+
+	respond(s, i, "📜 Last self-update log:\n```text\n"+text+"\n```")
+}
+
 func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
 	respond(s, i, "🔄 Starting self-update...")
 
 	script := b.cfg.SelfUpdateScript
@@ -103,9 +133,9 @@ func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	logPath := filepath.Join("data", "self-update.log")
 
-	logFile, err := os.Create(logPath)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		editResponse(s, i, "❌ Failed to create update log:\n```text\n"+err.Error()+"\n```")
+		editResponse(s, i, "❌ Failed to open update log:\n```text\n"+err.Error()+"\n```")
 		return
 	}
 
@@ -124,11 +154,10 @@ func (b *Bot) onSelfUpdate(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	editResponse(s, i, fmt.Sprintf(
-		"✅ Self-update started.\nPID: `%d`\nLog: `%s`\nCheck with:\n```bash\ncat %s\njournalctl -u %s -f\n```",
+		"🔄 Self-update started.\n\nPID: `%d`\nLog: `%s`\n\nCheck logs:\n```bash\ntail -f %s\n```",
 		cmd.Process.Pid,
 		logPath,
 		logPath,
-		b.cfg.SystemdService,
 	))
 
 	go func() {

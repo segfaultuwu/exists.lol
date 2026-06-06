@@ -132,6 +132,11 @@ func Commands() []*discordgo.ApplicationCommand {
 					Name:        "update",
 					Description: "Pull, build and restart the bot",
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "logs",
+					Description: "Show last self-update log",
+				},
 			},
 		},
 		{
