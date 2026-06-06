@@ -9,7 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /out/existsbot ./cmd/existsbot
+RUN make build
 
 FROM alpine:latest
 
@@ -18,7 +18,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates git wget docker-cli docker-cli-compose && \
     git config --global --add safe.directory /app
 
-COPY --from=builder /out/existsbot /app/existsbot
+COPY --from=builder /bin/existsbot /app/existsbot
 
 RUN mkdir -p /app/domains /app/data /app/scripts
 
