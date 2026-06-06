@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,6 +27,8 @@ type Bot struct {
 	users    *users.Store
 	registry *registry.Registry
 	api      *apiclient.Client
+
+	stopPresence chan struct{}
 }
 
 func New(cfg config.Config) *Bot {
@@ -53,51 +56,10 @@ func New(cfg config.Config) *Bot {
 
 		users:    userStore,
 		registry: reg,
+		api:      apiClient,
 
-		api: apiClient,
+		stopPresence: make(chan struct{}),
 	}
-}
-
-func (b *Bot) updatePresence(s *discordgo.Session) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	domainCount := "?"
-
-	domains, err := b.api.ListDomains(ctx)
-	if err == nil {
-		domainCount = fmt.Sprintf("%d", len(domains))
-	}
-
-	err = s.UpdateStatusComplex(discordgo.UpdateStatusData{
-		Status: "online",
-		Activities: []*discordgo.Activity{
-			{
-				Name: fmt.Sprintf("%s domains | /help | %s | %s | %s |", domainCount, version.Version, version.Commit, version.BuildDate),
-				Type: discordgo.ActivityTypeWatching,
-			},
-		},
-	})
-	if err != nil {
-		log.Println("failed to update presence:", err)
-	}
-}
-
-func (b *Bot) startPresenceUpdater() {
-	b.updatePresence(b.dg)
-
-	ticker := time.NewTicker(60 * time.Second)
-
-	go func() {
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				b.updatePresence(b.dg)
-			}
-		}
-	}()
 }
 
 func (b *Bot) Run() error {
@@ -120,9 +82,7 @@ func (b *Bot) Run() error {
 		return err
 	}
 
-	if err := b.dg.UpdateGameStatus(0, "Watching exists.lol domains"); err != nil {
-		log.Println("failed to update bot status:", err)
-	}
+	b.startPresenceUpdater()
 
 	log.Println("existsbot is running. Press Ctrl+C to stop.")
 
@@ -131,6 +91,8 @@ func (b *Bot) Run() error {
 	<-stop
 
 	log.Println("shutting down...")
+
+	close(b.stopPresence)
 
 	return nil
 }
@@ -143,9 +105,81 @@ func (b *Bot) registerCommands() error {
 			cmd,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("register command %q: %w", cmd.Name, err)
 		}
 	}
 
 	return nil
+}
+
+func (b *Bot) startPresenceUpdater() {
+	b.updatePresence()
+
+	ticker := time.NewTicker(60 * time.Second)
+
+	go func() {
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				b.updatePresence()
+
+			case <-b.stopPresence:
+				return
+			}
+		}
+	}()
+}
+
+func (b *Bot) updatePresence() {
+	if b.dg == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	domainCount := "?"
+
+	domains, err := b.api.ListDomains(ctx)
+	if err == nil {
+		domainCount = fmt.Sprintf("%d", len(domains))
+	} else {
+		log.Println("presence: failed to fetch domains:", err)
+	}
+
+	name := fmt.Sprintf("%s domains | %s", domainCount, versionLabel())
+
+	if len(name) > 120 {
+		name = name[:120]
+	}
+
+	err = b.dg.UpdateStatusComplex(discordgo.UpdateStatusData{
+		Status: "online",
+		Activities: []*discordgo.Activity{
+			{
+				Name: name,
+				Type: discordgo.ActivityTypeWatching,
+			},
+		},
+	})
+	if err != nil {
+		log.Println("failed to update presence:", err)
+	}
+}
+
+func versionLabel() string {
+	ver := strings.TrimSpace(version.Version)
+	commit := strings.TrimSpace(version.Commit)
+
+	if ver == "" || ver == "dev" {
+		ver = "dev"
+	}
+
+	if commit == "" || commit == "unknown" {
+		return ver
+	}
+
+	return ver + "@" + commit
 }
