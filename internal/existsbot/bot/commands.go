@@ -137,6 +137,40 @@ func Commands() []*discordgo.ApplicationCommand {
 					Name:        "logs",
 					Description: "Show last self-update log",
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "status",
+					Description: "Show current bot status",
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "version",
+					Description: "Show current bot version",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "format",
+							Description: "Version output format",
+							Required:    false,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "short", Value: "short"},
+								{Name: "long", Value: "long"},
+							},
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "include_commit",
+							Description: "Include current commit hash",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "include_build_date",
+							Description: "Include bot build date",
+							Required:    false,
+						},
+					},
+				},
 			},
 		},
 		{

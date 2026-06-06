@@ -48,8 +48,16 @@ pkgs.mkShell {
     build() {
       mkdir -p bin
 
-      go build -o bin/existsbot ./cmd/existsbot &&
-      go build -o bin/existslol ./cmd/existslol
+      VERSION=$(cat version.txt)
+      COMMIT="$(git rev-parse --short HEAD)"
+      BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      go build \
+        -ldflags "\
+          -X github.com/segfaultuwu/exists.lol/internal/version.Version=$VERSION \
+          -X github.com/segfaultuwu/exists.lol/internal/version.Commit=$COMMIT \
+          -X github.com/segfaultuwu/exists.lol/internal/version.BuildDate=$BUILD_DATE" \
+        -o bin/existsbot ./cmd/existsbot
     }
   '';
 }

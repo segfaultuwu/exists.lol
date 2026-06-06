@@ -23,6 +23,12 @@ dev:
 build:
 	mkdir -p $(BIN_DIR)
 	$(GO) build -o $(BIN) $(MAIN)
+	go build \
+        -ldflags "\
+            -X github.com/segfaultuwu/exists.lol/internal/version.Version=$(cat version.txt)\
+            -X github.com/segfaultuwu/exists.lol/internal/version.Commit=$(git rev-parse --short HEAD) \
+            -X github.com/segfaultuwu/exists.lol/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -o bin/existsbot ./cmd/existsbot
 
 run: build
 	./$(BIN)

@@ -2,18 +2,22 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/segfaultuwu/exists.lol/internal/auth"
 	"github.com/segfaultuwu/exists.lol/internal/existsbot/apiclient"
 	users "github.com/segfaultuwu/exists.lol/internal/links"
 	"github.com/segfaultuwu/exists.lol/internal/validate"
+	"github.com/segfaultuwu/exists.lol/internal/version"
 )
 
 func (b *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -81,9 +85,145 @@ func (b *Bot) onSelfCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	case "logs":
 		b.onSelfLogs(s, i)
 
+	case "status":
+		b.onSelfStatus(s, i)
+
+	case "version":
+		b.onSelfVersion(s, i, data.Options[0])
+
 	default:
 		respond(s, i, "❌ Unknown self subcommand.")
 	}
+}
+
+func (b *Bot) onSelfStatus(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(b.cfg.API.InternalURL, "/")+"/api/status", nil)
+	if err != nil {
+		respond(s, i, "❌ Failed to create API request:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		respond(s, i, "❌ Local API is unreachable:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respond(s, i, fmt.Sprintf("❌ Local API returned HTTP `%d`.", resp.StatusCode))
+		return
+	}
+
+	var status struct {
+		OK       bool   `json:"ok"`
+		Service  string `json:"service"`
+		Registry string `json:"registry"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		respond(s, i, "❌ Failed to decode API response:\n```text\n"+err.Error()+"\n```")
+		return
+	}
+
+	domains := "unknown"
+
+	if list, err := b.api.ListDomains(ctx); err == nil {
+		domains = fmt.Sprintf("%d", len(list))
+	}
+
+	state := "❌ down"
+	if status.OK {
+		state = "✅ up"
+	}
+
+	var out strings.Builder
+	out.WriteString("🤖 **ExistsBot status**\n\n")
+	out.WriteString("Local API: ")
+	out.WriteString(state)
+	out.WriteString("\n")
+
+	out.WriteString("Service: `")
+	out.WriteString(status.Service)
+	out.WriteString("`\n")
+
+	out.WriteString("Registry: `")
+	out.WriteString(status.Registry)
+	out.WriteString("`\n")
+
+	out.WriteString("Domains loaded: `")
+	out.WriteString(domains)
+	out.WriteString("`\n")
+
+	out.WriteString("API URL (internal): `")
+	out.WriteString(strings.TrimRight(b.cfg.API.InternalURL, "/"))
+	out.WriteString("API URL (public/external): `")
+	out.WriteString(strings.TrimRight(b.cfg.API.PublicURL, "/"))
+	out.WriteString("`\n")
+
+	respond(s, i, out.String())
+}
+
+func (b *Bot) onSelfVersion(
+	s *discordgo.Session,
+	i *discordgo.InteractionCreate,
+	sub *discordgo.ApplicationCommandInteractionDataOption,
+) {
+	if !auth.HasRequiredRole(i.Member, b.cfg.DiscordRequiredRoleID) {
+		respond(s, i, "❌ You are not allowed to use this command.")
+		return
+	}
+
+	format := "short"
+	includeCommit := false
+	includeBuildDate := false
+
+	for _, opt := range sub.Options {
+		switch opt.Name {
+		case "format":
+			format = opt.StringValue()
+
+		case "include_commit":
+			includeCommit = opt.BoolValue()
+
+		case "include_build_date":
+			includeBuildDate = opt.BoolValue()
+		}
+	}
+
+	if format == "long" {
+		includeCommit = true
+		includeBuildDate = true
+	}
+
+	var out strings.Builder
+
+	out.WriteString("🤖 **ExistsBot version**\n\n")
+	out.WriteString("Version: `")
+	out.WriteString(version.Version)
+	out.WriteString("`\n")
+
+	if includeCommit {
+		out.WriteString("Commit: `")
+		out.WriteString(version.Commit)
+		out.WriteString("`\n")
+	}
+
+	if includeBuildDate {
+		out.WriteString("Build date: `")
+		out.WriteString(version.BuildDate)
+		out.WriteString("`\n")
+	}
+
+	respond(s, i, out.String())
 }
 
 func (b *Bot) onSelfLogs(s *discordgo.Session, i *discordgo.InteractionCreate) {
