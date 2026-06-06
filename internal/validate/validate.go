@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var allowedSubdomain = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+var allowedSubdomain = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 var reserved = map[string]bool{
 	"www":       true,
@@ -44,7 +44,7 @@ func Request(subdomain, recordType, value string) error {
 	}
 
 	if !allowedSubdomain.MatchString(subdomain) {
-		return fmt.Errorf("subdomain can only contain lowercase letters, numbers and dashes")
+		return fmt.Errorf("subdomain can only contain lowercase letters, numbers, dashes, underscores and dots")
 	}
 
 	if strings.HasPrefix(subdomain, "-") || strings.HasSuffix(subdomain, "-") {
