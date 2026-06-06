@@ -241,6 +241,11 @@ func (b *Bot) onSelfLogs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	text := string(data)
+	if strings.TrimSpace(text) == "" {
+		respond(s, i, "ℹ️ Self-update log is empty.")
+		return
+	}
+
 	if len(text) > 3500 {
 		text = text[len(text)-3500:]
 	}
