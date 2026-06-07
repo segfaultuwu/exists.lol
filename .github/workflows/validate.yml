@@ -1,26 +1,21 @@
-name: Validate Domains
+name: Validate registry
 
 on:
+  push:
+    branches: [main, testing]
   pull_request:
-    paths:
-      - "domains/**"
-      - "cmd/**"
-      - "internal/**"
-      - "go.mod"
-      - "go.sum"
 
 jobs:
   validate:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: oven-sh/setup-bun@v2
         with:
-          go-version: "1.24"
+          bun-version: latest
 
-      - name: Validate
-        run: go run ./cmd/existslol validate
+      - run: bun install
+
+      - run: bun run validate
