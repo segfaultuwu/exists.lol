@@ -1,0 +1,22 @@
+services:
+  existslol:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: existslol
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+
+      REGISTRY_DIR: /app/domains
+      BASE_DOMAIN: exists.lol
+      ROOT_DOMAIN: exists.lol
+
+      API_TOKEN: ${ADMIN_TOKEN}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID}
+    volumes:
+      - ./domains:/app/domains:ro
