@@ -10,7 +10,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "validate": "bun src/validate.ts",
-    "publish": "bun src/publish.ts"
+    "publish": "bun src/publish.ts",
+    "sync:cf": "bun scripts/sync-cf.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
